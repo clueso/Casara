@@ -91,7 +91,7 @@ namespace Casara
                 MainMap.Center = new Bing.Maps.Location(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude);
                 MainMap.ZoomLevel = 12;
                 GPS.LocUpdateThreshold = 10.0;
-                DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude,0.005,0x0000ff);
+                DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude,0.0025,0x0000ff);
             }
             catch(Exception)
             {
@@ -225,7 +225,7 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     MainMap.Center = NewCentre;
-                    DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude, 0.005, 0x00ff0000);
+                    DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude, 0.0025, 0x00ff0000);
                 }
                 );
             }

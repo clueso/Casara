@@ -9,6 +9,9 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:bm="using:Bing.Maps"
+    xmlns:hm="using:Bing.Maps.HeatMaps"
+    xmlns:esri="using:Esri.ArcGISRuntime.Controls"
+    xmlns:layers="using:Esri.ArcGISRuntime.Layers"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -47,14 +50,27 @@
             <TextBlock x:Name="pageTitle" Text="{StaticResource AppName}" Style="{StaticResource HeaderTextBlockStyle}" Grid.Column="1" 
                         IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Bottom" Margin="0,0,30,40"/>
         </Grid>
-        <bm:Map Credentials="Atk03m4RSm9PuGboENw2DDNpXqZqxwsTQ4VA9wOuaVw1wcCQh9JxGrRtgJ1Zcr-o" x:Name="MainMap" Height="500" Width="500" Margin="391,51,475,77" Grid.Row="1"></bm:Map>
-        <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Left" Margin="1081,123,0,0" Grid.Row="1" VerticalAlignment="Top" Click="StopButton_Click"/>
+        <!--ScrollViewer x:Name="testscroll" HorizontalAlignment="Left" Height="500" Margin="391,51,475,77" Grid.Row="1" VerticalAlignment="Top" Width="500">
+            <Canvas x:Name="testcanvas" HorizontalAlignment="Left" Height="500" Grid.Row="1" VerticalAlignment="Top" Width="500">
+                <Ellipse Fill="Blue" Height="50" Width="100" StrokeThickness="5" Stroke="Black" Canvas.Left="10" Canvas.Top="100" />
+            </Canvas>
+        </-->
+        <esri:MapView x:Name="MainMapView" Height="500" Width="500" Margin="391,51,475,77" Grid.Row="1">
+            <esri:Map x:Name="MainMap">
+                <layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer"/>
+                <layers:GraphicsLayer ID="ShapeLayer"/>
+                <!--layers:ArcGISDynamicMapServiceLayer ID="Hurricanes" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/Hurricanes/MapServer"/-->
+            </esri:Map>
+        </esri:MapView>
+            <!--bm:Map Credentials="Atk03m4RSm9PuGboENw2DDNpXqZqxwsTQ4VA9wOuaVw1wcCQh9JxGrRtgJ1Zcr-o" x:Name="MainMap" Height="500" Width="500" Margin="391,51,475,77" Grid.Row="1" ViewChanged="MainMap_Viewchanged"/-->
+            <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Left" Margin="1081,123,0,0" Grid.Row="1" VerticalAlignment="Top" Click="StopButton_Click"/>
         <TextBox x:Name="LatitudeBox" HorizontalAlignment="Left" Margin="1084,170,0,0" Grid.Row="1" TextWrapping="Wrap" Text="Latitude = " VerticalAlignment="Top" Width="207"/>
         <TextBox x:Name="AccuracyBox" HorizontalAlignment="Left" Margin="1084,297,0,0" Grid.Row="1" TextWrapping="Wrap" Text="Accuracy =" VerticalAlignment="Top" Width="207"/>
         <TextBox x:Name="LongitudeBox" HorizontalAlignment="Left" Margin="1084,235,0,0" Grid.Row="1" TextWrapping="Wrap" Text="Longitude = " VerticalAlignment="Top" Width="207"/>
         <Button x:Name="StartButton" Content="Start" HorizontalAlignment="Left" Margin="1081,30,0,0" Grid.Row="1" VerticalAlignment="Top" Click="StartButton_Click"/>
         <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Margin="1084,378,0,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top" Height="90" Width="207" Text="hello!"/>
         <Button x:Name="ClearButton" Content="Clear" HorizontalAlignment="Left" Margin="1081,76,0,0" Grid.Row="1" VerticalAlignment="Top" Click="ClearButton_Click"/>
+        
     </Grid>
 
 </Page>

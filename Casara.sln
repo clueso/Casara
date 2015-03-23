@@ -20,10 +20,12 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|ARM = Debug|ARM
+		Debug|Mixed Platforms = Debug|Mixed Platforms
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
 		Release|ARM = Release|ARM
+		Release|Mixed Platforms = Release|Mixed Platforms
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
@@ -34,6 +36,9 @@ Global
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|ARM.ActiveCfg = Debug|ARM
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|ARM.Build.0 = Debug|ARM
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|ARM.Deploy.0 = Debug|ARM
+		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|Mixed Platforms.Deploy.0 = Debug|x86
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|x64.ActiveCfg = Debug|x64
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|x64.Build.0 = Debug|x64
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Debug|x64.Deploy.0 = Debug|x64
@@ -46,6 +51,9 @@ Global
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|ARM.ActiveCfg = Release|ARM
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|ARM.Build.0 = Release|ARM
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|ARM.Deploy.0 = Release|ARM
+		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|Mixed Platforms.Build.0 = Release|x86
+		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|Mixed Platforms.Deploy.0 = Release|x86
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|x64.ActiveCfg = Release|x64
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|x64.Build.0 = Release|x64
 		{DB2360F9-10F5-4147-8F63-DE3D1600729E}.Release|x64.Deploy.0 = Release|x64
@@ -58,6 +66,9 @@ Global
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|ARM.ActiveCfg = Debug|ARM
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|ARM.Build.0 = Debug|ARM
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|ARM.Deploy.0 = Debug|ARM
+		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|Mixed Platforms.Deploy.0 = Debug|x86
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|x64.ActiveCfg = Debug|Any CPU
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|x86.ActiveCfg = Debug|x86
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Debug|x86.Build.0 = Debug|x86
@@ -68,6 +79,9 @@ Global
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|ARM.ActiveCfg = Release|ARM
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|ARM.Build.0 = Release|ARM
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|ARM.Deploy.0 = Release|ARM
+		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|Mixed Platforms.Build.0 = Release|x86
+		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|Mixed Platforms.Deploy.0 = Release|x86
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|x64.ActiveCfg = Release|Any CPU
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|x86.ActiveCfg = Release|x86
 		{FCF33079-4075-4D3D-8210-0E016E89E9CA}.Release|x86.Build.0 = Release|x86

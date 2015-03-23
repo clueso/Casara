@@ -14,9 +14,17 @@ using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.Devices.Geolocation;
-using Bing.Maps;
+//using Bing.Maps;
 using Windows.UI.Core;
 using System.Diagnostics;
+using Windows.UI.Xaml.Shapes;
+//using Bing.Maps.HeatMaps;
+using Windows.UI.Xaml.Media.Imaging;
+using Windows.Storage;
+//using Microsoft.Maps.SpatialToolbox.Bing;
+//using Microsoft.Maps.SpatialToolbox.IO;
+//using Microsoft.Maps.SpatialToolbox;
+//using LocalTileLayers;
 
 // The Basic Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234237
 
@@ -35,6 +43,22 @@ namespace Casara
         private float MaxIntensity;
         private float MinIntensity;
         private Stopwatch StayTimer;
+        private double MapScale;
+
+        //private ShapeStyle DefaultStyle = new ShapeStyle()
+        //{
+        //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
+        //    StrokeColor = StyleColor.FromArgb(150, 125, 125, 125),
+        //    StrokeThickness = 1
+        //};
+
+        //private LocalTileSource layerInfo = new LocalTileSource()
+        //{
+        //    ZipTilePath = new Uri("ms-appx:///Assets/HurricaneKatrina.zip"),
+        //    MinZoomLevel = 1,
+        //    MaxZoomLevel = 6,
+        //    Bounds = new LocationRect(new Location(72, -170), new Location(14, -65))
+        //};
 
         /// <summary>
         /// This can be changed to a strongly typed view model.
@@ -68,6 +92,7 @@ namespace Casara
             MaxIntensity = 100;
             MinIntensity = 0;
             StayTimer = new Stopwatch();
+            MapScale = 591657;
         }
 
         /// <summary>
@@ -84,20 +109,26 @@ namespace Casara
         private async void navigationHelper_LoadState(object sender, LoadStateEventArgs e)
         {
             Geoposition Position = null;
-            
+            Esri.ArcGISRuntime.Geometry.MapPoint MapCentre = null;
+                       
             try
             {
+                
                 Position = await GPS.GetGPSLocation();
-                MainMap.Center = new Bing.Maps.Location(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude);
-                MainMap.ZoomLevel = 12;
+                LatitudeBox.Text += Position.Coordinate.Point.Position.Latitude.ToString();
+                LongitudeBox.Text += Position.Coordinate.Point.Position.Longitude.ToString();
+
+                MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
+                MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
-                DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude,0.0025,0x0000ff);
+                //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
+                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, 0x00ff0000);
             }
-            catch(Exception)
+            catch(Exception ex)
             {
                 StatusTextBlock.Text = "Error in navigationHelper_LoadState!\n";
             }
-                        
+
             StatusTextBlock.Text += "State Loaded...\n";
         }
 
@@ -138,42 +169,58 @@ namespace Casara
 
         #endregion
         
-        private void DrawCircle(double Latitude, double Longitude, double Radius, Int32 Intensity)
+        private void DrawCircle(double Longitude, double Latitude, double Radius, Int32 Intensity)
         {
-            MapPolygon Poly = new MapPolygon();
-            Location Loc;
+            Esri.ArcGISRuntime.Geometry.Polygon Poly = null;
+            List<Esri.ArcGISRuntime.Geometry.MapPoint> MapPointsList = new List<Esri.ArcGISRuntime.Geometry.MapPoint>();
+            int MaxPoints = 16;
 
-            for (int i = 0; i < 16; i++)
-            {
-                Loc = new Location(Latitude + Radius * Math.Cos(i * 3.14 / 8), Longitude + Radius * Math.Sin(i * 3.14 / 8));
-                Poly.Locations.Add(Loc);
-            }
+            for (int i = 0; i < MaxPoints; i++)
+                MapPointsList.Add(new Esri.ArcGISRuntime.Geometry.MapPoint(Longitude + Radius * Math.Cos(i * 3.14 / (MaxPoints / 2)), Latitude + Radius * Math.Sin(i * 3.14 / (MaxPoints / 2)), Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84));
 
-            Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
+            Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
+
+            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = new Esri.ArcGISRuntime.Symbology.SimpleFillSymbol();
+            Fill.Color = Windows.UI.Colors.Blue;
+            Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
+
+            // Create a new graphic and set it's geometry and symbol. 
+            Esri.ArcGISRuntime.Layers.Graphic Graphic = new Esri.ArcGISRuntime.Layers.Graphic();
+            Graphic.Geometry = Poly;
+            Graphic.Symbol = Fill;
+
+            //Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
+
 
             try
             {
-                if (MainMap.ShapeLayers.Count == 0)
-                    MainMap.ShapeLayers.Add(new MapShapeLayer());
+                if (MainMap.Layers.Count == 0)
+                    MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
 
-                MainMap.ShapeLayers[0].Shapes.Add(Poly);
+                Esri.ArcGISRuntime.Layers.GraphicsLayer test = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+                test.Graphics.Add(Graphic);
             }
-            catch(Exception)
+            catch(Exception ex)
             {
                 StatusTextBlock.Text += "Map Error\n";
             }
-            
+
             StatusTextBlock.Text += "DrawCircle done...\n";
         }
 
-        private void ChangeShapeColour(MapPolygon Poly, Int32 Intensity)
+        private void ChangeShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly, Int32 Intensity)
         {
-            Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
+            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
+
+            Fill.Color = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff)); ;
+            Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
         }
 
-        private Int32 GetShapeColour(MapPolygon Poly)
+        private Int32 GetShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly)
         {
-            Int32 Colour = (Poly.FillColor.A << 24) | (Poly.FillColor.R << 16) | (Poly.FillColor.G << 8) | (Poly.FillColor.B);
+            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
+
+            Int32 Colour = (Fill.Color.A << 24) | (Fill.Color.R << 16) | (Fill.Color.G << 8) | (Fill.Color.B);
             return Colour;
         }
 
@@ -182,7 +229,7 @@ namespace Casara
             try
             {
                 if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
-                {                    
+                {
                     GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
                 }
 
@@ -191,24 +238,26 @@ namespace Casara
             }
             catch (Exception)
             {
-                //StatusTextBlock.Text += "Error in StartButton_Click!\n";
-            }
-            
+                StatusTextBlock.Text += "Error in StartButton_Click!\n";
+            }            
         }
 
         private void UpdateShapeColours(Int32 Change)
         {
-            MapShapeCollection ShapeCollection = MainMap.ShapeLayers[0].Shapes;
+            Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+            Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
             byte A, R = (byte)((Change & 0x00ff0000) >> 16), G = (byte)((Change & 0x0000ff00) >> 8), B = (byte)(Change & 0x000000ff);
             int i;
 
-            for(i = 0; i < ShapeCollection.Count; i++)
+            for (i = 0; i < GraphicsList.Count; i++)
             {
-                A = ((MapPolygon)ShapeCollection[i]).FillColor.A;
-                R += ((MapPolygon)ShapeCollection[i]).FillColor.R;
-                G += ((MapPolygon)ShapeCollection[i]).FillColor.G;
-                B += ((MapPolygon)ShapeCollection[i]).FillColor.B;
-                ((MapPolygon)ShapeCollection[i]).FillColor = Windows.UI.Color.FromArgb(A,R,G,B);
+                Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)GraphicsList[i].Symbol;
+
+                A = Fill.Color.A;
+                R += Fill.Color.R;
+                G += Fill.Color.G;
+                B += Fill.Color.B;
+                Fill.Color = Windows.UI.Color.FromArgb(A, R, G, B);
             }
         }
 
@@ -220,12 +269,12 @@ namespace Casara
             {
                 Position = await GPS.GetGPSLocation();
 
-                Bing.Maps.Location NewCentre = new Bing.Maps.Location(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude);
+                Esri.ArcGISRuntime.Geometry.MapPoint NewCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude,Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
                 
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
-                    MainMap.Center = NewCentre;
-                    DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude, 0.0025, 0x00ff0000);
+                    MainMapView.SetView(NewCentre,MapScale);
+                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, 0x00ff0000);
                 }
                 );
             }
@@ -249,7 +298,7 @@ namespace Casara
         private void StopButton_Click(object sender, RoutedEventArgs e)
         {
             if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
-            {                    
+            {
                 GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
             }
 
@@ -261,7 +310,9 @@ namespace Casara
         {
             try
             {
-                MainMap.ShapeLayers.Clear();
+                Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+                Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
+                GraphicsList.Clear();
             }
             catch(Exception)
             {
@@ -269,5 +320,54 @@ namespace Casara
             }
             
         }
+
+        //private void TestSpeed()
+        //{
+        //    int Limit = 20;
+        //    int i;
+        //    Random R = new Random();
+        //    //Image test = (Image)MainMap.Children[0];
+        //    //SolidColorBrush brush = new SolidColorBrush(Windows.UI.Colors.Blue);
+            
+
+        //    for (i = 0; i < Limit; i++)
+        //    {
+        //        Location Loc = new Location(R.NextDouble()*180-90,R.NextDouble()*360-180);
+        //        Image img = new Image();
+        //        img.Source = new BitmapImage(new Uri("ms-appx:///Assets/tweety.jpg"));
+        //        img.Height = 50;
+        //        img.Width = 50;
+        //        //MapLayer.SetPosition((Image)img, Loc);
+        //        //MainMap.Children.Add(img);
+        //        //DrawCircle(49,122,0.25,0x0000ff);//R.NextDouble()*180-90,R.NextDouble()*360-180
+        //        //test.DrawCircle(R.Next(50, 400), R.Next(50, 400), brush);
+        //    }
+        //    StatusTextBlock.Text += "Added circles...\n";
+        //}
+
+        //private void MainMap_Viewchanged(object sender, ViewChangedEventArgs e)
+        //{
+            //if (MainMap.Children.Count > 0)
+            //{
+            //    Image test = (Image)MainMap.Children[0];
+
+            //    test.Height = 10 * MainMap.ZoomLevel;
+            //    test.Width = 10 * MainMap.ZoomLevel;
+            //    test.Stretch = Stretch.UniformToFill;
+            //    test.InvalidateArrange();
+            //    MainMap.InvalidateArrange();
+            //    ScrollableImage test = (ScrollableImage)MainMap.Children[0];
+            //    test.SetZoom((float)MainMap.ZoomLevel);
+            //}
+
+        //}
+
+        //private void MainMap_LayerLoaded(object sender, LayerLoadedEventArgs e)
+        //{
+        //    if (e.LoadError == null)
+        //        return;
+
+        //    Debug.WriteLine(string.Format("Error while loading layer : {0} - {1}", e.Layer.ID, e.LoadError.Message));
+        //}
     }
 }

@@ -5,6 +5,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:Maps="using:Windows.UI.Xaml.Controls.Maps"
+    xmlns:esri="using:Esri.ArcGISRuntime.Controls"
+    xmlns:layers="using:Esri.ArcGISRuntime.Layers"
     x:Class="Casara.MainPage"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
@@ -31,9 +33,16 @@
         <!--TODO: Content should be placed within the following grid-->
         <Grid Grid.Row="1" x:Name="ContentRoot" Margin="19,9.5,19,0">
 
-            <ScrollViewer x:Name="MapScrollViewer" HorizontalAlignment="Left" Height="369" Width="352" Margin="10,71,0,0" VerticalAlignment="Top" ZoomMode="Enabled">
+            <!--ScrollViewer x:Name="MapScrollViewer" HorizontalAlignment="Left" Height="369" Width="352" Margin="10,71,0,0" VerticalAlignment="Top" ZoomMode="Enabled">
                 <Maps:MapControl x:Name="MainMap" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalAlignment="Top" Height="369" Width="352"/>
-            </ScrollViewer>
+            </ScrollViewer-->
+            <esri:MapView x:Name="MainMapView" Height="400" Width="400" Grid.Row="1">
+                <esri:Map x:Name="MainMap">
+                    <layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer"/>
+                    <layers:GraphicsLayer ID="ShapeLayer"/>
+                    <!--layers:ArcGISDynamicMapServiceLayer ID="Hurricanes" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/Hurricanes/MapServer"/-->
+                </esri:Map>
+            </esri:MapView>
             <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Margin="10,10,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="56" Width="352"/>
             <Button x:Name="StartButton" Content="Start" HorizontalAlignment="Left" Height="37" Margin="10,443,0,0" VerticalAlignment="Top" Width="89" RenderTransformOrigin="0.512,0.497" Click="StartButton_Click"/>
             <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Left" Margin="248,443,0,0" VerticalAlignment="Top" Width="114" Click="StopButton_Click"/>

@@ -15,9 +15,9 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
-using Windows.UI.Xaml.Controls.Maps;
+//using Windows.UI.Xaml.Controls.Maps;
 using Windows.Devices.Geolocation;
-using Windows.UI.Xaml.Shapes;
+//using Windows.UI.Xaml.Shapes;
 using Windows.UI.Core;
 using System.Diagnostics;
 
@@ -37,6 +37,7 @@ namespace Casara
         private float MaxIntensity;
         private float MinIntensity;
         private Stopwatch StayTimer;
+        private double MapScale;
 
         public MainPage()
         {
@@ -50,6 +51,7 @@ namespace Casara
             MaxIntensity = 1;
             MinIntensity = 0;
             StayTimer = new Stopwatch();
+            MapScale = 591657;
         }
 
         /// <summary>
@@ -83,6 +85,7 @@ namespace Casara
         private async void NavigationHelper_LoadState(object sender, LoadStateEventArgs e)
         {
             Geoposition Position = null;
+            Esri.ArcGISRuntime.Geometry.MapPoint MapCentre = null;
 
             if (GPS == null)
                 GPS = new GPSDataClass();
@@ -91,13 +94,8 @@ namespace Casara
             {
                 Position = await GPS.GetGPSLocation();
                 GPS.LocUpdateThreshold = 10.0;
-
-                MainMap.Center = new Geopoint(new BasicGeoposition()
-                {
-                    Latitude = Position.Coordinate.Point.Position.Latitude,
-                    Longitude = Position.Coordinate.Point.Position.Longitude
-                });
-                MainMap.ZoomLevel = 12;
+                MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
+                MainMapView.SetView(MapCentre, MapScale);
             }
             catch(Exception)
             {
@@ -145,48 +143,80 @@ namespace Casara
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             this.navigationHelper.OnNavigatedFrom(e);
-        }        
+        }
 
-        private void DrawCircle(double Latitude, double Longitude, double Radius, Int32 Intensity)
+        private void DrawCircle(double Longitude, double Latitude, double Radius, Int32 Intensity)
         {
-            MapPolygon Poly = new MapPolygon();
-            List<BasicGeoposition> positions = new List<BasicGeoposition>();
+            Esri.ArcGISRuntime.Geometry.Polygon Poly = null;
+            List<Esri.ArcGISRuntime.Geometry.MapPoint> MapPointsList = new List<Esri.ArcGISRuntime.Geometry.MapPoint>();
+            int MaxPoints = 16;
 
-            for (int i = 0; i < 16; i++)
-            {
-                positions.Add(new BasicGeoposition() { Latitude = Latitude + Radius * Math.Cos(i * 3.14 / 8), Longitude = Longitude + Radius * Math.Sin(i * 3.14 / 8) });
-            }
+            for (int i = 0; i < MaxPoints; i++)
+                MapPointsList.Add(new Esri.ArcGISRuntime.Geometry.MapPoint(Longitude + Radius * Math.Cos(i * 3.14 / (MaxPoints / 2)), Latitude + Radius * Math.Sin(i * 3.14 / (MaxPoints / 2)), Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84));
 
-            Poly.Path = new Geopath(positions);
-            Poly.StrokeColor = Windows.UI.Color.FromArgb(120, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
-            Poly.FillColor = Poly.StrokeColor;
+            Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
+
+            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = new Esri.ArcGISRuntime.Symbology.SimpleFillSymbol();
+            Fill.Color = Windows.UI.Colors.Blue;
+            Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
+
+            // Create a new graphic and set it's geometry and symbol. 
+            Esri.ArcGISRuntime.Layers.Graphic Graphic = new Esri.ArcGISRuntime.Layers.Graphic();
+            Graphic.Geometry = Poly;
+            Graphic.Symbol = Fill;
+
+            //Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
+
 
             try
             {
-                MainMap.MapElements.Add(Poly);
+                if (MainMap.Layers.Count == 0)
+                    MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
+
+                Esri.ArcGISRuntime.Layers.GraphicsLayer test = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+                test.Graphics.Add(Graphic);
             }
-            catch(Exception)
+            catch (Exception ex)
             {
-                StatusTextBlock.Text = "Error in adding circle";
+                StatusTextBlock.Text += "Map Error\n";
             }
-            
+
+            StatusTextBlock.Text += "DrawCircle done...\n";
         }
 
-        private void ChangeShapeColour(MapPolygon Poly, Int32 Intensity)
+        private void ChangeShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly, Int32 Intensity)
         {
-            Poly.FillColor = Windows.UI.Color.FromArgb(120, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
-            Poly.StrokeColor = Poly.FillColor;
+            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
+
+            Fill.Color = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff)); ;
+            Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
         }
 
-        private Int32 GetShapeColour(MapPolygon Poly)
+        private Int32 GetShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly)
         {
-            Int32 Colour = (Poly.FillColor.A << 24) | (Poly.FillColor.R << 16) | (Poly.FillColor.G << 8) | (Poly.FillColor.B);
+            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
+
+            Int32 Colour = (Fill.Color.A << 24) | (Fill.Color.R << 16) | (Fill.Color.G << 8) | (Fill.Color.B);
             return Colour;
         }
 
         private void UpdateShapeColours(Int32 Change)
         {
+            Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+            Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
+            byte A, R = (byte)((Change & 0x00ff0000) >> 16), G = (byte)((Change & 0x0000ff00) >> 8), B = (byte)(Change & 0x000000ff);
+            int i;
 
+            for (i = 0; i < GraphicsList.Count; i++)
+            {
+                Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)GraphicsList[i].Symbol;
+
+                A = Fill.Color.A;
+                R += Fill.Color.R;
+                G += Fill.Color.G;
+                B += Fill.Color.B;
+                Fill.Color = Windows.UI.Color.FromArgb(A, R, G, B);
+            }
         }
 
         async private void GPSPositionChanged(Geolocator sender, PositionChangedEventArgs e)
@@ -216,16 +246,16 @@ namespace Casara
 
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.High, () =>
                 {
-                    MainMap.Center = NewCentre;
-                    DrawCircle(Position.Coordinate.Point.Position.Latitude, Position.Coordinate.Point.Position.Longitude, 0.0025, Colour);
+                    //MainMap.Center = NewCentre;
+                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, Colour);
                 }
                 );
             }
-            catch(Exception)
+            catch (Exception)
             {
                 //StatusTextBlock.Text = "Error in geo position update"; //Cannot access UI thread in this catch statement. May cause a crash if uncommented
             }
-            
+
 
             StayTimer.Reset();
             StayTimer.Start();
@@ -237,7 +267,7 @@ namespace Casara
 
             double delta = (MaxIntensity - MinIntensity) / (3 * 255);
             IntensityColour = (Int32)Math.Ceiling(Intensity / delta);
-            
+
             return IntensityColour;
         }
 
@@ -280,7 +310,9 @@ namespace Casara
         {
             try
             {
-                MainMap.MapElements.Clear();
+                Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+                Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
+                GraphicsList.Clear();
             }
             catch(Exception)
             {

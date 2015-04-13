@@ -20,11 +20,21 @@ using Windows.Devices.Geolocation;
 //using Windows.UI.Xaml.Shapes;
 using Windows.UI.Core;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using Windows.Devices.Enumeration;
+using Windows.Devices.Bluetooth.Rfcomm;
 
 // The Basic Page item template is documented at http://go.microsoft.com/fwlink/?LinkID=390556
 
 namespace Casara
 {
+    public struct ArduinoDataPoint
+    {
+        public double Latitude;
+        public double Longitude;
+        public Int32 SignalStrength;
+    };
+
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
@@ -34,10 +44,29 @@ namespace Casara
         private ObservableDictionary defaultViewModel = new ObservableDictionary();
         private GPSDataClass GPS = null;
         private CoreDispatcher WinCoreDispatcher;
-        private float MaxIntensity;
-        private float MinIntensity;
+        private Int32 MaxIntensity;
+        private Int32 MinIntensity;
         private Stopwatch StayTimer;
         private double MapScale;
+        private BlueToothClass BTClass;
+        private Task ListenTask;
+        private List<ArduinoDataPoint> MeasuredSignalStrength;
+        private string DataBuffer;
+
+        //private ShapeStyle DefaultStyle = new ShapeStyle()
+        //{
+        //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
+        //    StrokeColor = StyleColor.FromArgb(150, 125, 125, 125),
+        //    StrokeThickness = 1
+        //};
+
+        //private LocalTileSource layerInfo = new LocalTileSource()
+        //{
+        //    ZipTilePath = new Uri("ms-appx:///Assets/HurricaneKatrina.zip"),
+        //    MinZoomLevel = 1,
+        //    MaxZoomLevel = 6,
+        //    Bounds = new LocationRect(new Location(72, -170), new Location(14, -65))
+        //};
 
         public MainPage()
         {
@@ -52,6 +81,11 @@ namespace Casara
             MinIntensity = 0;
             StayTimer = new Stopwatch();
             MapScale = 591657;
+            BTClass = new BlueToothClass();
+            ListenTask = null;
+
+            BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
+            BTClass.MessageReceived += BTClass_OnDataReceived;
         }
 
         /// <summary>
@@ -157,7 +191,7 @@ namespace Casara
             Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
 
             Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = new Esri.ArcGISRuntime.Symbology.SimpleFillSymbol();
-            Fill.Color = Windows.UI.Colors.Blue;
+            Fill.Color = CalculateIntensityColour(Intensity, 128);
             Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
 
             // Create a new graphic and set it's geometry and symbol. 
@@ -176,7 +210,7 @@ namespace Casara
                 Esri.ArcGISRuntime.Layers.GraphicsLayer test = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
                 test.Graphics.Add(Graphic);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 StatusTextBlock.Text += "Map Error\n";
             }
@@ -184,21 +218,21 @@ namespace Casara
             StatusTextBlock.Text += "DrawCircle done...\n";
         }
 
-        private void ChangeShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly, Int32 Intensity)
-        {
-            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
+        //private void ChangeShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly, Int32 Intensity)
+        //{
+        //    Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
 
-            Fill.Color = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff)); ;
-            Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
-        }
+        //    Fill.Color = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff)); ;
+        //    Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
+        //}
 
-        private Int32 GetShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly)
-        {
-            Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
+        //private Int32 GetShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly)
+        //{
+        //    Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
 
-            Int32 Colour = (Fill.Color.A << 24) | (Fill.Color.R << 16) | (Fill.Color.G << 8) | (Fill.Color.B);
-            return Colour;
-        }
+        //    Int32 Colour = (Fill.Color.A << 24) | (Fill.Color.R << 16) | (Fill.Color.G << 8) | (Fill.Color.B);
+        //    return Colour;
+        //}
 
         private void UpdateShapeColours(Int32 Change)
         {
@@ -222,16 +256,16 @@ namespace Casara
         async private void GPSPositionChanged(Geolocator sender, PositionChangedEventArgs e)
         {
             Geoposition Position = null;
-            Int32 Colour;
+            //Windows.UI.Color Colour;
 
             StayTimer.Stop();
 
             if (StayTimer.ElapsedMilliseconds > MaxIntensity)
-                MaxIntensity = StayTimer.ElapsedMilliseconds;
+                MaxIntensity = (Int32)StayTimer.ElapsedMilliseconds;
             else if (StayTimer.ElapsedMilliseconds < MinIntensity)
-                MinIntensity = StayTimer.ElapsedMilliseconds;
+                MinIntensity = (Int32)StayTimer.ElapsedMilliseconds;
 
-            Colour = CalculateIntensityColour(StayTimer.ElapsedMilliseconds);
+            //Colour = CalculateIntensityColour((Int32)StayTimer.ElapsedMilliseconds, 128);
 
             try
             {
@@ -247,7 +281,7 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.High, () =>
                 {
                     //MainMap.Center = NewCentre;
-                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, Colour);
+                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, (Int32)StayTimer.ElapsedMilliseconds);
                 }
                 );
             }
@@ -261,14 +295,22 @@ namespace Casara
             StayTimer.Start();
         }
 
-        private Int32 CalculateIntensityColour(double Intensity)
+        //For 100% opacity, pass a value to 255, for 0% pass a value of 0
+        private Windows.UI.Color CalculateIntensityColour(Int32 Intensity, byte Opacity)
         {
-            Int32 IntensityColour;
+            Windows.UI.Color ColourValue;
+            Int32 Colour;
+            Int32 Delta = (0x00ff0000 - 0x000000ff) / 1024;
 
-            double delta = (MaxIntensity - MinIntensity) / (3 * 255);
-            IntensityColour = (Int32)Math.Ceiling(Intensity / delta);
+            Colour = Intensity * Delta + 0x000000ff;
 
-            return IntensityColour;
+            ColourValue.R = (byte)((Colour & 0x00ff0000) >> 16);
+            ColourValue.G = (byte)((Colour & 0x0000ff00) >> 8);
+            ColourValue.B = (byte)(Colour & 0x000000ff);
+
+            ColourValue.A = Opacity;
+
+            return ColourValue;
         }
 
         #endregion
@@ -287,22 +329,26 @@ namespace Casara
             StatusTextBlock.Text += "Finished StopButton_Click\n";
         }
 
-        private void StartButton_Click(object sender, RoutedEventArgs e)
+        private async void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                if (GPS != null && GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
-                {
-                    GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
-                }
-            }
-            catch(Exception)
-            {
-                StatusTextBlock.Text = "Error in StartButton_Click";
-            }
+            //try
+            //{
+            //    if (GPS != null && GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
+            //    {
+            //        GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
+            //    }
+            //}
+            //catch(Exception)
+            //{
+            //    StatusTextBlock.Text = "Error in StartButton_Click";
+            //}
             
-            StayTimer.Reset();
-            StayTimer.Start();
+            //StayTimer.Reset();
+            //StayTimer.Start();
+            DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
+            //DeviceInformation ChosenDevice = ConnectedDevices.First(Device => Device.Id.Equals("HC-05"));
+            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("HC-05")));
+            ListenTask = BTClass.ListenForData();
             StatusTextBlock.Text += "Finished StartButton_Click\n";
         }
 
@@ -319,6 +365,94 @@ namespace Casara
                 StatusTextBlock.Text = "Error in ClearButton_Click";
             }
             StatusTextBlock.Text += "Finished ClearButton_Click\n";
+        }
+
+        public void BTClass_OnExceptionOccured(object sender, Exception ex)
+        {
+
+        }
+
+        public void BTClass_OnDataReceived(object sender, string message)
+        {
+            Debug.WriteLine("New Message:" + message);
+            try
+            {
+                if (DataBuffer != null)
+                    DataBuffer += message;
+                else
+                    DataBuffer = message;
+
+                ParseMessage();
+                PlotList();
+                MeasuredSignalStrength.Clear();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Exception in BTClass_OnDataReceived");
+            }
+        }
+
+        void ParseMessage()
+        {
+            string TrimmedMessage;
+            string ProcessedString;
+
+            if (DataBuffer.Contains("\n"))
+                TrimmedMessage = DataBuffer.Substring(0, DataBuffer.LastIndexOf('\n'));
+            else
+                TrimmedMessage = DataBuffer;
+
+            string[] DataPointList = TrimmedMessage.Split('\r', '\n');
+
+            foreach (string Str in DataPointList)
+            {
+                if (!Str.Equals("") && Str.Count(Sep => Sep == ',') == 2)
+                {
+                    string[] SignalList = Str.Split(',');
+
+                    if (MeasuredSignalStrength != null && !SignalList[0].Equals("") && !SignalList[1].Equals("") && !SignalList[2].Equals(""))
+                    {
+                        MeasuredSignalStrength.Add(new ArduinoDataPoint
+                        {
+                            SignalStrength = Convert.ToInt32(SignalList[0]),
+                            Latitude = Convert.ToDouble(SignalList[1]),
+                            Longitude = Convert.ToDouble(SignalList[2])
+                        });
+
+                        if (DataBuffer.Contains(Str + "\r\n"))
+                            ProcessedString = Str + "\r\n";
+                        else if (DataBuffer.Contains(Str + "\r"))
+                            ProcessedString = Str + "\r";
+                        else
+                            ProcessedString = Str;
+
+                        DataBuffer = DataBuffer.Remove(DataBuffer.IndexOf(ProcessedString), ProcessedString.Length);
+                    }
+                }
+            }
+        }
+
+        private void PlotList()
+        {
+            foreach (ArduinoDataPoint Point in MeasuredSignalStrength)
+            {
+                if (Point.SignalStrength > MaxIntensity)
+                {
+                    MaxIntensity = Point.SignalStrength;
+                    //UpdateShapeColours(Colour);
+                }
+
+
+                if (Point.SignalStrength < MinIntensity)
+                {
+                    MinIntensity = Point.SignalStrength;
+                    //UpdateShapeColours(Colour);
+                }
+
+                DrawCircle(Point.Longitude, Point.Latitude, 0.0025, Point.SignalStrength);
+            }
+
+            StatusTextBlock.Text += "Finished plotting\n";
         }
     }
 }

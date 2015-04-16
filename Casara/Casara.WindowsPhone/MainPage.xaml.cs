@@ -347,7 +347,7 @@ namespace Casara
             //StayTimer.Start();
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
             //DeviceInformation ChosenDevice = ConnectedDevices.First(Device => Device.Id.Equals("HC-05"));
-            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("HC-05")));
+            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("RNBT-6971")));
             ListenTask = BTClass.ListenForData();
             StatusTextBlock.Text += "Finished StartButton_Click\n";
         }

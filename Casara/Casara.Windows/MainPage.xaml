@@ -16,7 +16,7 @@
 
     <Page.Resources>
         <!-- TODO: Delete this line if the key AppName is declared in App.xaml -->
-        <x:String x:Key="AppName">My Application</x:String>
+        <x:String x:Key="AppName">ELT Map</x:String>
     </Page.Resources>
 
     <!--
@@ -33,6 +33,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="140"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="60" />
         </Grid.RowDefinitions>
 
         <!-- Back button and page title -->
@@ -55,25 +56,51 @@
                 <Ellipse Fill="Blue" Height="50" Width="100" StrokeThickness="5" Stroke="Black" Canvas.Left="10" Canvas.Top="100" />
             </Canvas>
         </-->
-        <esri:MapView x:Name="MainMapView" Height="500" Margin="163,39,451,89" Grid.Row="1">
-            <esri:Map x:Name="MainMap">
-                <layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer"/>
-                <layers:GraphicsLayer ID="ShapeLayer"/>
-                <!--layers:ArcGISDynamicMapServiceLayer ID="Hurricanes" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/Hurricanes/MapServer"/-->
-            </esri:Map>
-        </esri:MapView>
-        <!--bm:Map Credentials="Atk03m4RSm9PuGboENw2DDNpXqZqxwsTQ4VA9wOuaVw1wcCQh9JxGrRtgJ1Zcr-o" x:Name="MainMap" Height="500" Width="500" Margin="391,51,475,77" Grid.Row="1" ViewChanged="MainMap_Viewchanged"/-->
-        <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Left" Margin="1081,123,0,0" Grid.Row="1" VerticalAlignment="Top" Click="StopButton_Click" IsEnabled="False"/>
-        <TextBox x:Name="LatitudeBox" HorizontalAlignment="Left" Margin="1084,170,0,0" Grid.Row="1" TextWrapping="Wrap" Text="Latitude = " VerticalAlignment="Top" Width="207"/>
-        <TextBox x:Name="AccuracyBox" HorizontalAlignment="Left" Margin="1084,297,0,0" Grid.Row="1" TextWrapping="Wrap" Text="Accuracy =" VerticalAlignment="Top" Width="207"/>
-        <TextBox x:Name="LongitudeBox" HorizontalAlignment="Left" Margin="1084,235,0,0" Grid.Row="1" TextWrapping="Wrap" Text="Longitude = " VerticalAlignment="Top" Width="207"/>
-        <Button x:Name="StartButton" Content="Start" HorizontalAlignment="Left" Margin="1081,30,0,0" Grid.Row="1" VerticalAlignment="Top" Click="StartButton_Click" IsEnabled="False"/>
-        <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Margin="1084,425,0,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top" Height="180" Width="207"/>
-        <Button x:Name="ClearButton" Content="Clear" HorizontalAlignment="Left" Margin="1081,76,0,0" Grid.Row="1" VerticalAlignment="Top" Click="ClearButton_Click"/>
-        <Button x:Name="BTStartButton" Content="Start" HorizontalAlignment="Left" Margin="1185,30,0,0" Grid.Row="1" VerticalAlignment="Top" RenderTransformOrigin="0.612,0.789" Click="BTStarted_Clicked"/>
-        <Button Content="Stop" HorizontalAlignment="Left" Margin="1187,77,0,0" Grid.Row="1" VerticalAlignment="Top" Click="BTStop_Clicked"/>
-        <TextBox x:Name="SignalStrengthTextBox" HorizontalAlignment="Left" Margin="1084,360,0,0" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top" Width="207" Text="Signal ="/>
-
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="60" />
+            </Grid.ColumnDefinitions>
+            <esri:MapView x:Name="MainMapView" Grid.Column="1">
+                <esri:Map x:Name="MainMap">
+                    <layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer"/>
+                    <layers:GraphicsLayer ID="ShapeLayer"/>
+                    <!--layers:ArcGISDynamicMapServiceLayer ID="Hurricanes" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/Hurricanes/MapServer"/-->
+                </esri:Map>
+            </esri:MapView>
+            <!--bm:Map Credentials="Atk03m4RSm9PuGboENw2DDNpXqZqxwsTQ4VA9wOuaVw1wcCQh9JxGrRtgJ1Zcr-o" x:Name="MainMap" Height="500" Width="500" Margin="391,51,475,77" Grid.Row="1" ViewChanged="MainMap_Viewchanged"/-->
+            <Grid Grid.Column="3">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto"/>
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="StartButton" Content="Start" HorizontalAlignment="Left" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" Click="StartButton_Click" IsEnabled="False" Width="100"/>
+                <Button x:Name="ClearButton" Content="Clear" HorizontalAlignment="Left" Grid.Row="1" Grid.Column="0" VerticalAlignment="Top" Click="ClearButton_Click" Width="100"/>
+                <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Left" Grid.Row="2" Grid.Column="0"  VerticalAlignment="Top" Click="StopButton_Click" IsEnabled="False" Width="100"/>
+                <Button x:Name="BTStartButton" Content="Start" HorizontalAlignment="Left" Grid.Row="0" Grid.Column="1" VerticalAlignment="Top" Click="BTStarted_Clicked" RenderTransformOrigin="0.612,0.789" Width="100"/>
+                <Button Content="Stop" HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" Click="BTStop_Clicked" Width="100"/>
+                <TextBox x:Name="LatitudeBox" HorizontalAlignment="Left" Grid.Row="3" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Latitude = " VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <TextBox x:Name="LongitudeBox" HorizontalAlignment="Left" Grid.Row="4" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Longitude = " VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <TextBox x:Name="AccuracyBox" HorizontalAlignment="Left" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Accuracy =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <TextBox x:Name="SignalStrengthTextBox" HorizontalAlignment="Left" Grid.Row="6" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Signal =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <ScrollViewer Grid.Row="7" Grid.ColumnSpan="2">
+                    <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Grid.Row="7" Grid.ColumnSpan="2" TextWrapping="Wrap" VerticalAlignment="Top" Height="auto" Width="200" Margin="3,4,0,0" />
+                </ScrollViewer>
+            </Grid>
+        </Grid>
     </Grid>
 
 </Page>

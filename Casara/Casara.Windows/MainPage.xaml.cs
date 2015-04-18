@@ -209,7 +209,7 @@ namespace Casara
             Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
 
             Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = new Esri.ArcGISRuntime.Symbology.SimpleFillSymbol();
-            Fill.Color = CalculateIntensityColour(Intensity, 128);
+            Fill.Color = CalculateIntensityColour(Intensity, 255);
             Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
 
             // Create a new graphic and set it's geometry and symbol. 

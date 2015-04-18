@@ -59,7 +59,9 @@ namespace Casara
         private Task ListenTask;
         private List<ArduinoDataPoint> MeasuredSignalStrength;
         private string DataBuffer;
-        
+        private StorageFolder DataFolder;
+        private StorageFile DataFile;
+        private Int32 FileCounter;
         //private ShapeStyle DefaultStyle = new ShapeStyle()
         //{
         //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
@@ -110,12 +112,14 @@ namespace Casara
             MapScale = 591657;
             BTClass = new BlueToothClass();
             ListenTask = null;
+            DataFolder = ApplicationData.Current.LocalFolder;
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
             //auto services = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(
                 //RfcommServiceId.ObexObjectPush));
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
+            FileCounter = 0;
         }
 
         /// <summary>
@@ -313,14 +317,22 @@ namespace Casara
         private Windows.UI.Color CalculateIntensityColour(Int32 Intensity, byte Opacity)
         {
             Windows.UI.Color ColourValue;
-            Int32 Colour;
-            Int32 Delta = (0x00ff0000 - 0x000000ff) / 1024;
+            //Int32 Colour;
+            //Int32 Delta = (0x00ff0000 - 0x000000ff) / 1024;
 
-            Colour = Intensity * Delta + 0x000000ff;
+            //Colour = Intensity * Delta + 0x000000ff;
 
-            ColourValue.R = (byte)((Colour & 0x00ff0000) >> 16);
-            ColourValue.G = (byte)((Colour & 0x0000ff00) >> 8);
-            ColourValue.B = (byte)(Colour & 0x000000ff);
+            //ColourValue.R = (byte)((Colour & 0x00ff0000) >> 16);
+            //ColourValue.G = (byte)((Colour & 0x0000ff00) >> 8);
+            //ColourValue.B = (byte)(Colour & 0x000000ff);
+            if(Intensity < 250)
+                ColourValue = Windows.UI.Colors.Blue;
+            else if(Intensity >= 250 && Intensity < 500)
+                ColourValue = Windows.UI.Colors.Green;
+            else if(Intensity >= 500 && Intensity < 750)
+                ColourValue = Windows.UI.Colors.Yellow;
+            else
+                ColourValue = Windows.UI.Colors.Red;
 
             ColourValue.A = Opacity;
 
@@ -355,9 +367,23 @@ namespace Casara
 
         private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
         {
+            if (DataFolder != null)
+            {
+                try
+                {
+                    DataFile = await DataFolder.CreateFileAsync("DataFile_" + FileCounter.ToString() + ".txt", CreationCollisionOption.ReplaceExisting);
+                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started" + DateTime.Now.ToString() + "\r\n");
+                    FileCounter += 1;
+                }
+                catch(Exception ex)
+                {
+                    Debug.WriteLine("Error opening file!");
+                }
+            }
+
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
             //DeviceInformation ChosenDevice = ConnectedDevices.First(Device => Device.Id.Equals("HC-05"));
-            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("RNBT-6971")));
+            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("HC-05")));
             ListenTask = BTClass.ListenForData();
             //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
             //ParseMessage();
@@ -367,6 +393,8 @@ namespace Casara
         private void BTStop_Clicked(object sender, RoutedEventArgs e)
         {
             BTClass.DisconnectDevice();
+            if (DataFile != null)
+                DataFile = null;
             //DataBuffer += ",-123.17\r\n100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n";
             //ParseMessage();
             //PlotList();
@@ -377,7 +405,7 @@ namespace Casara
 
         }
 
-        public void BTClass_OnDataReceived(object sender, string message)
+        public async void BTClass_OnDataReceived(object sender, string message)
         {
             Debug.WriteLine("New Message:" + message);
 
@@ -389,7 +417,7 @@ namespace Casara
                     DataBuffer = message;
 
                 ParseMessage();
-                PlotList();
+                await PlotList();
 
                 try
                 {
@@ -455,7 +483,7 @@ namespace Casara
             StatusTextBlock.Text += "Done Parsing: " + MeasuredSignalStrength.Count.ToString() + " Points.\n";
         }
 
-        private void PlotList()
+        private async Task PlotList()
         {
             foreach(ArduinoDataPoint Point in MeasuredSignalStrength)
             {
@@ -473,6 +501,10 @@ namespace Casara
                 }
 
                 DrawCircle(Point.Longitude, Point.Latitude, 0.0025, Point.SignalStrength);
+                if (DataFile != null)
+                    await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
+                            + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
+
             }
 
             StatusTextBlock.Text += "Finished plotting\n";

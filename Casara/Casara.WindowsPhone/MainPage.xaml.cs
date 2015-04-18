@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Bluetooth.Rfcomm;
+using Windows.Storage;
 
 // The Basic Page item template is documented at http://go.microsoft.com/fwlink/?LinkID=390556
 
@@ -52,7 +53,9 @@ namespace Casara
         private Task ListenTask;
         private List<ArduinoDataPoint> MeasuredSignalStrength;
         private string DataBuffer;
-
+        private StorageFolder DataFolder;
+        private StorageFile DataFile;
+        private Int32 FileCounter;
         //private ShapeStyle DefaultStyle = new ShapeStyle()
         //{
         //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
@@ -83,6 +86,7 @@ namespace Casara
             MapScale = 591657;
             BTClass = new BlueToothClass();
             ListenTask = null;
+            DataFolder = ApplicationData.Current.LocalFolder;
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
@@ -317,6 +321,9 @@ namespace Casara
 
         private void StopButton_Click(object sender, RoutedEventArgs e)
         {
+            if (DataFile != null)
+                DataFile = null;
+
             StayTimer.Stop();
             try
             {
@@ -345,6 +352,21 @@ namespace Casara
             
             //StayTimer.Reset();
             //StayTimer.Start();
+
+            if (DataFolder != null)
+            {
+                try
+                {
+                    DataFile = await DataFolder.CreateFileAsync("DataFile_" + FileCounter.ToString() + ".txt", CreationCollisionOption.ReplaceExisting);
+                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started" + DateTime.Now.ToString() + "\r\n");
+                    FileCounter += 1;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Error opening file!");
+                }
+            }
+
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
             //DeviceInformation ChosenDevice = ConnectedDevices.First(Device => Device.Id.Equals("HC-05"));
             await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("RNBT-6971")));
@@ -372,7 +394,7 @@ namespace Casara
 
         }
 
-        public void BTClass_OnDataReceived(object sender, string message)
+        public async void BTClass_OnDataReceived(object sender, string message)
         {
             Debug.WriteLine("New Message:" + message);
             try
@@ -383,7 +405,7 @@ namespace Casara
                     DataBuffer = message;
 
                 ParseMessage();
-                PlotList();
+                await PlotList();
                 MeasuredSignalStrength.Clear();
             }
             catch (Exception ex)
@@ -432,7 +454,7 @@ namespace Casara
             }
         }
 
-        private void PlotList()
+        private async Task PlotList()
         {
             foreach (ArduinoDataPoint Point in MeasuredSignalStrength)
             {
@@ -450,6 +472,9 @@ namespace Casara
                 }
 
                 DrawCircle(Point.Longitude, Point.Latitude, 0.0025, Point.SignalStrength);
+                if (DataFile != null)
+                    await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
+                            + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
             }
 
             StatusTextBlock.Text += "Finished plotting\n";

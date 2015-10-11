@@ -64,10 +64,10 @@
                 <ColumnDefinition Width="auto" />
                 <ColumnDefinition Width="60" />
             </Grid.ColumnDefinitions>
-            <esri:MapView x:Name="MainMapView" Grid.Column="1">
+            <esri:MapView x:Name="MainMapView" Grid.Column="1" Loaded="onMainMapViewLoaded">
                 <esri:Map x:Name="MainMap">
-                    <layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer"/>
-                    <layers:GraphicsLayer ID="ShapeLayer"/>
+                    <!--layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer"/-->
+                    <!--layers:GraphicsLayer ID="ShapeLayer"/-->
                     <!--layers:ArcGISDynamicMapServiceLayer ID="Hurricanes" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/Hurricanes/MapServer"/-->
                 </esri:Map>
             </esri:MapView>
@@ -92,13 +92,16 @@
                 <Button x:Name="StopButton" Content="Stop" HorizontalAlignment="Left" Grid.Row="2" Grid.Column="0"  VerticalAlignment="Top" Click="StopButton_Click" IsEnabled="False" Width="100"/>
                 <Button x:Name="BTStartButton" Content="Start" HorizontalAlignment="Left" Grid.Row="0" Grid.Column="1" VerticalAlignment="Top" Click="BTStarted_Clicked" RenderTransformOrigin="0.612,0.789" Width="100"/>
                 <Button Content="Stop" HorizontalAlignment="Left" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" Click="BTStop_Clicked" Width="100"/>
-                <TextBox x:Name="LatitudeBox" HorizontalAlignment="Left" Grid.Row="3" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Latitude = " VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
-                <TextBox x:Name="LongitudeBox" HorizontalAlignment="Left" Grid.Row="4" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Longitude = " VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
-                <TextBox x:Name="AccuracyBox" HorizontalAlignment="Left" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Accuracy =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
-                <TextBox x:Name="SignalStrengthTextBox" HorizontalAlignment="Left" Grid.Row="6" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Signal =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
-                <ScrollViewer Grid.Row="7" Grid.ColumnSpan="2">
-                    <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Grid.Row="7" Grid.ColumnSpan="2" TextWrapping="Wrap" VerticalAlignment="Top" Height="auto" Width="200" Margin="3,4,0,0" />
+                <RadioButton x:Name="LocalRadioButton" Content="Local" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Left" Margin="8.5,4,0,0" VerticalAlignment="Top" Checked="LocalRadioButtonChecked"/>
+                <RadioButton x:Name="OnlineRadioButton" Content="Online" Grid.Row="3" Grid.Column="0" Checked="OnlineRadioButtonChecked" IsChecked="True"/>
+                <TextBox x:Name="LatitudeBox" HorizontalAlignment="Left" Grid.Row="4" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Latitude = " VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <TextBox x:Name="LongitudeBox" HorizontalAlignment="Left" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Longitude = " VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <TextBox x:Name="AccuracyBox" HorizontalAlignment="Left" Grid.Row="6" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Accuracy =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <TextBox x:Name="SignalStrengthTextBox" HorizontalAlignment="Left" Grid.Row="7" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Signal =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
+                <ScrollViewer Grid.Row="8" Grid.ColumnSpan="2">
+                    <TextBlock x:Name="StatusTextBlock" TextWrapping="Wrap" Height="262" Margin="0,50,0,0"/>
                 </ScrollViewer>
+                <Button x:Name="DownloadButton" Content="Download" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Left" Margin="2,0,0,0" VerticalAlignment="Top" Width="98" Click="onDownloadClick"/>
             </Grid>
         </Grid>
     </Grid>

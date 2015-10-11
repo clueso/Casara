@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
@@ -28,6 +29,10 @@ using Windows.Devices.Enumeration;
 //using Microsoft.Maps.SpatialToolbox.Bing;
 //using Microsoft.Maps.SpatialToolbox.IO;
 //using Microsoft.Maps.SpatialToolbox;
+using Esri.ArcGISRuntime.Layers;
+using Esri.ArcGISRuntime.Tasks.Offline;
+using Esri.ArcGISRuntime.Geometry;
+using Esri.ArcGISRuntime.Controls;
 using Casara;
 
 // The Basic Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234237
@@ -62,6 +67,11 @@ namespace Casara
         private StorageFolder DataFolder;
         private StorageFile DataFile;
         private Int32 FileCounter;
+        private string BaseMapUrl = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer";
+        private ArcGISTiledMapServiceLayer OnlineMapBaseLayer;
+        private ArcGISLocalTiledLayer LocalMapBaseLayer;
+        private GraphicsLayer DataLayer;
+        private StorageFile TilePackageFile;
         //private ShapeStyle DefaultStyle = new ShapeStyle()
         //{
         //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
@@ -113,6 +123,10 @@ namespace Casara
             BTClass = new BlueToothClass();
             ListenTask = null;
             DataFolder = ApplicationData.Current.LocalFolder;
+            OnlineMapBaseLayer = null;
+            LocalMapBaseLayer = null;
+            DataLayer = null;
+            TilePackageFile = null;
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
@@ -508,6 +522,102 @@ namespace Casara
             }
 
             StatusTextBlock.Text += "Finished plotting\n";
+        }
+
+        private async void onDownloadClick(object sender, RoutedEventArgs e)
+        {
+            //string BaseMapUrl = "http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer";
+            ExportTileCacheTask ExportTask = new ExportTileCacheTask(new Uri(BaseMapUrl));
+            GenerateTileCacheParameters generateOptions = new GenerateTileCacheParameters();
+            DownloadTileCacheParameters downloadOptions = new DownloadTileCacheParameters(ApplicationData.Current.TemporaryFolder);
+            var checkInterval = TimeSpan.FromSeconds(2);
+            CancellationToken token = new CancellationToken();
+                       
+            // overwrite the file if it already exists
+            downloadOptions.OverwriteExistingFiles = true;
+
+            generateOptions.Format = ExportTileCacheFormat.TilePackage;
+            generateOptions.GeometryFilter = MainMapView.Extent; //new Envelope(15.757,73.139,14.680,74.772,Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
+            generateOptions.MinScale = 6000000.0;
+            generateOptions.MaxScale = 1.0;
+
+            StatusTextBlock.Text += "Downloading tile cache...\n";
+            // generate the tiles and download them 
+            var result = await ExportTask.GenerateTileCacheAndDownloadAsync(generateOptions, 
+                                                                     downloadOptions, 
+                                                                     checkInterval, 
+                                                                     token, 
+                                                                     null,
+                                                                     null);
+
+            if (LocalMapBaseLayer == null)
+            {
+                TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");
+                LocalMapBaseLayer = new ArcGISLocalTiledLayer(TilePackageFile);
+                await LocalMapBaseLayer.InitializeAsync();   
+            }
+            if (LocalMapBaseLayer.InitializationException == null)
+                StatusTextBlock.Text += "Download finished.\n";
+            else
+                StatusTextBlock.Text += "Download failed.\n";
+
+            
+        }
+
+        private async void onMainMapViewLoaded(object sender, RoutedEventArgs e)
+        {
+            if(OnlineMapBaseLayer == null)
+            {
+                OnlineMapBaseLayer = new ArcGISTiledMapServiceLayer(new Uri(BaseMapUrl));
+                await OnlineMapBaseLayer.InitializeAsync();
+            }
+
+            if(DataLayer == null)
+            {
+                DataLayer = new GraphicsLayer();
+                DataLayer.ID = "ShapeLayer";
+                await DataLayer.InitializeAsync();
+            }
+
+            if (OnlineMapBaseLayer != null && OnlineMapBaseLayer.InitializationException == null)
+            {
+                MainMapView.Map.Layers.Add(OnlineMapBaseLayer);
+                if(DataLayer != null && DataLayer.InitializationException == null)
+                {
+                    MainMapView.Map.Layers.Add(DataLayer);
+                }
+                else
+                {
+                    StatusTextBlock.Text += "Something wrong adding Datalayer.\n";
+                }
+            }
+            else
+            {
+                StatusTextBlock.Text += "Something wrong in BaseLayer\n";
+            }
+
+        }
+
+        private void OnlineRadioButtonChecked(object sender, RoutedEventArgs e)
+        {
+            if(OnlineMapBaseLayer != null && OnlineMapBaseLayer.InitializationException == null)
+            {
+                MainMapView.Map.Layers.Clear();
+                MainMapView.Map.Layers.Add(OnlineMapBaseLayer);
+                if (DataLayer != null && DataLayer.InitializationException == null)
+                    MainMapView.Map.Layers.Add(DataLayer);
+            }
+        }
+
+        private void LocalRadioButtonChecked(object sender, RoutedEventArgs e)
+        {
+            if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
+            {
+                MainMapView.Map.Layers.Clear();
+                MainMapView.Map.Layers.Add(LocalMapBaseLayer);
+                if (DataLayer != null && DataLayer.InitializationException == null)
+                    MainMapView.Map.Layers.Add(DataLayer);
+            }
         }
 
         //private void TestSpeed()

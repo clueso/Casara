@@ -2,6 +2,7 @@
     x:Class="Casara.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Casara">
+    xmlns:local="using:Casara"
+    RequestedTheme="Light">
 
 </Application>

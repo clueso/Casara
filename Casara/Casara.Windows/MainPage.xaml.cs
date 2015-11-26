@@ -383,7 +383,9 @@ namespace Casara
 
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
             //DeviceInformation ChosenDevice = ConnectedDevices.First(Device => Device.Id.Equals("HC-05"));
-            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("HC-05")));
+            //Ashwin BT = HC-05
+            //Daniel BT = RNBT-6971
+            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("RNBT-6971")));
             ListenTask = BTClass.ListenForData();
             //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
             //ParseMessage();

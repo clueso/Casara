@@ -67,7 +67,7 @@ namespace Casara
         private StorageFolder DataFolder;
         private StorageFile DataFile;
         private Int32 FileCounter;
-        private string BaseMapUrl = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer";
+        private string BaseMapUrl = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer"; //"http://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Topo_Map/MapServer";
         private ArcGISTiledMapServiceLayer OnlineMapBaseLayer;
         private ArcGISLocalTiledLayer LocalMapBaseLayer;
         private GraphicsLayer DataLayer;
@@ -530,7 +530,7 @@ namespace Casara
             ExportTileCacheTask ExportTask = new ExportTileCacheTask(new Uri(BaseMapUrl));
             GenerateTileCacheParameters generateOptions = new GenerateTileCacheParameters();
             DownloadTileCacheParameters downloadOptions = new DownloadTileCacheParameters(ApplicationData.Current.TemporaryFolder);
-            var checkInterval = TimeSpan.FromSeconds(2);
+            TimeSpan checkInterval = TimeSpan.FromSeconds(2);
             CancellationToken token = new CancellationToken();
                        
             // overwrite the file if it already exists
@@ -543,12 +543,20 @@ namespace Casara
 
             StatusTextBlock.Text += "Downloading tile cache...\n";
             // generate the tiles and download them 
-            var result = await ExportTask.GenerateTileCacheAndDownloadAsync(generateOptions, 
-                                                                     downloadOptions, 
-                                                                     checkInterval, 
-                                                                     token, 
+            try
+            {
+                var result = await ExportTask.GenerateTileCacheAndDownloadAsync(generateOptions,
+                                                                     downloadOptions,
+                                                                     checkInterval,
+                                                                     token,
                                                                      null,
                                                                      null);
+            }
+            catch(Exception)
+            {
+              
+            }
+            
 
             if (LocalMapBaseLayer == null)
             {
@@ -566,13 +574,13 @@ namespace Casara
 
         private async void onMainMapViewLoaded(object sender, RoutedEventArgs e)
         {
-            if(OnlineMapBaseLayer == null)
+            if (OnlineMapBaseLayer == null)
             {
                 OnlineMapBaseLayer = new ArcGISTiledMapServiceLayer(new Uri(BaseMapUrl));
                 await OnlineMapBaseLayer.InitializeAsync();
             }
 
-            if(DataLayer == null)
+            if (DataLayer == null)
             {
                 DataLayer = new GraphicsLayer();
                 DataLayer.ID = "ShapeLayer";
@@ -582,7 +590,7 @@ namespace Casara
             if (OnlineMapBaseLayer != null && OnlineMapBaseLayer.InitializationException == null)
             {
                 MainMapView.Map.Layers.Add(OnlineMapBaseLayer);
-                if(DataLayer != null && DataLayer.InitializationException == null)
+                if (DataLayer != null && DataLayer.InitializationException == null)
                 {
                     MainMapView.Map.Layers.Add(DataLayer);
                 }
@@ -595,6 +603,23 @@ namespace Casara
             {
                 StatusTextBlock.Text += "Something wrong in BaseLayer\n";
             }
+            //if (LocalMapBaseLayer == null)
+            //{
+            //    TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");
+            //    LocalMapBaseLayer = new ArcGISLocalTiledLayer(TilePackageFile);
+            //    await LocalMapBaseLayer.InitializeAsync();
+            //}
+            //if (LocalMapBaseLayer.InitializationException == null)
+            //    StatusTextBlock.Text += "Download finished.\n";
+            //else
+            //    StatusTextBlock.Text += "Download failed.\n";
+            //if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
+            //{
+            //    MainMapView.Map.Layers.Clear();
+            //    MainMapView.Map.Layers.Add(LocalMapBaseLayer);
+            //    if (DataLayer != null && DataLayer.InitializationException == null)
+            //        MainMapView.Map.Layers.Add(DataLayer);
+            //}
 
         }
 

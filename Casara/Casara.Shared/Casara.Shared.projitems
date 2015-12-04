@@ -17,6 +17,5 @@
     </Compile>
     <Compile Include="$(MSBuildThisFileDirectory)BlueToothClass.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GPSDataClass.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)LocalTile.cs" />
   </ItemGroup>
 </Project>

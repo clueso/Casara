@@ -44,6 +44,7 @@ namespace Casara
         public double Latitude;
         public double Longitude;
         public Int32 SignalStrength;
+        public double Radius;
     };
 
     /// <summary>
@@ -163,7 +164,7 @@ namespace Casara
                 MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
                 //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
-                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, 0x00ff0000);
+                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
             }
             catch(Exception ex)
             {
@@ -211,14 +212,52 @@ namespace Casara
 
         #endregion
         
+        private double haversine(double angle)
+        {
+            return (1 - Math.Cos(angle))/2;
+        }
+
+        private void CalculateCircleVertices(List<Esri.ArcGISRuntime.Geometry.MapPoint> PointList, double Longitude, double Latitude, double Radius)
+        {
+            int i, Index, IndexInc;
+            double dLat, dLong, Lat, Long;
+            int MaxPoints = 16; //Should always be a factor of 4
+            double EarthRadius = 6400000.0; //Earth's radius in m
+            int YFactor = 1;
+
+            for (i = 0, Index = 0, IndexInc = 1; i < MaxPoints; i++, Index += IndexInc)
+            {
+                if (i == (MaxPoints/4) + 1)
+                {
+                    Index = (MaxPoints/4) - 1;
+                    IndexInc = -1;
+                    YFactor = -1;
+                }
+
+                if(i == ((MaxPoints * 3)/4) + 1)
+                {
+                    Index = -(MaxPoints/4) + 1;
+                    IndexInc = 1;
+                    YFactor = 1;
+                }
+
+                //Arguments to trig functions should be in radians, hence all the Math.PI and 180 shenanigans...
+                dLat = Index * (Radius / EarthRadius) / (MaxPoints / 4);  //in radians
+                dLong = YFactor * Math.Acos(1.0 - (haversine(Radius / EarthRadius)
+                                            - haversine(Math.Abs(dLat)))
+                                            / (Math.Cos(Math.PI * Latitude/180) * Math.Cos(Math.PI * Latitude/180 + dLat))
+                                            * 2);
+                PointList.Add(new Esri.ArcGISRuntime.Geometry.MapPoint(Longitude + dLong * 180/Math.PI, Latitude + dLat *  180/Math.PI, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84));
+            }
+        }
+
+        //Radius is in metres
         private void DrawCircle(double Longitude, double Latitude, double Radius, Int32 Intensity)
         {
             Esri.ArcGISRuntime.Geometry.Polygon Poly = null;
             List<Esri.ArcGISRuntime.Geometry.MapPoint> MapPointsList = new List<Esri.ArcGISRuntime.Geometry.MapPoint>();
-            int MaxPoints = 16;
 
-            for (int i = 0; i < MaxPoints; i++)
-                MapPointsList.Add(new Esri.ArcGISRuntime.Geometry.MapPoint(Longitude + Radius * Math.Cos(i * 3.14 / (MaxPoints / 2)), Latitude + Radius * Math.Sin(i * 3.14 / (MaxPoints / 2)), Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84));
+            CalculateCircleVertices(MapPointsList, Longitude, Latitude, Radius);
 
             Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
 
@@ -232,8 +271,7 @@ namespace Casara
             Graphic.Symbol = Fill;
 
             //Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
-
-
+            
             try
             {
                 if (MainMap.Layers.Count == 0)
@@ -316,7 +354,7 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     MainMapView.SetView(NewCentre,MapScale);
-                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, 0x00ff0000);
+                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 200, 0x00ff0000);
                 }
                 );
             }
@@ -339,11 +377,13 @@ namespace Casara
             //ColourValue.R = (byte)((Colour & 0x00ff0000) >> 16);
             //ColourValue.G = (byte)((Colour & 0x0000ff00) >> 8);
             //ColourValue.B = (byte)(Colour & 0x000000ff);
-            if(Intensity < 250)
+            if (Intensity < 205)
                 ColourValue = Windows.UI.Colors.Blue;
-            else if(Intensity >= 250 && Intensity < 500)
+            else if (Intensity >= 205 && Intensity < 410)
                 ColourValue = Windows.UI.Colors.Green;
-            else if(Intensity >= 500 && Intensity < 750)
+            else if (Intensity >= 410 && Intensity < 615)
+                ColourValue = Windows.UI.Colors.GreenYellow;
+            else if (Intensity >= 615 && Intensity < 820)
                 ColourValue = Windows.UI.Colors.Yellow;
             else
                 ColourValue = Windows.UI.Colors.Red;
@@ -477,7 +517,8 @@ namespace Casara
                         {
                             SignalStrength = Convert.ToInt32(SignalList[0]),
                             Latitude = Convert.ToDouble(SignalList[1]),
-                            Longitude = Convert.ToDouble(SignalList[2])
+                            Longitude = Convert.ToDouble(SignalList[2]),
+                            Radius = 200.0
                         });
 
                         if(DataBuffer.Contains(Str+"\r\n"))
@@ -514,7 +555,7 @@ namespace Casara
                     //UpdateShapeColours(Colour);
                 }
 
-                DrawCircle(Point.Longitude, Point.Latitude, 0.0025, Point.SignalStrength);
+                DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
                 if (DataFile != null)
                     await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
                             + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
@@ -584,6 +625,7 @@ namespace Casara
             {
                 DataLayer = new GraphicsLayer();
                 DataLayer.ID = "ShapeLayer";
+                DataLayer.Opacity = 0.5;
                 await DataLayer.InitializeAsync();
             }
 
@@ -603,6 +645,7 @@ namespace Casara
             {
                 StatusTextBlock.Text += "Something wrong in BaseLayer\n";
             }
+            
             //if (LocalMapBaseLayer == null)
             //{
             //    TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");

@@ -166,7 +166,7 @@ namespace Casara
                 //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
                 //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
             }
-            catch(Exception ex)
+            catch(Exception)
             {
                 StatusTextBlock.Text = "Error in navigationHelper_LoadState!\n";
             }
@@ -220,7 +220,7 @@ namespace Casara
         private void CalculateCircleVertices(List<Esri.ArcGISRuntime.Geometry.MapPoint> PointList, double Longitude, double Latitude, double Radius)
         {
             int i, Index, IndexInc;
-            double dLat, dLong, Lat, Long;
+            double dLat, dLong;
             int MaxPoints = 16; //Should always be a factor of 4
             double EarthRadius = 6400000.0; //Earth's radius in m
             int YFactor = 1;
@@ -280,7 +280,7 @@ namespace Casara
                 Esri.ArcGISRuntime.Layers.GraphicsLayer test = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
                 test.Graphics.Add(Graphic);
             }
-            catch(Exception ex)
+            catch(Exception)
             {
                 StatusTextBlock.Text += "Map Error\n";
             }
@@ -429,7 +429,7 @@ namespace Casara
                     await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started" + DateTime.Now.ToString() + "\r\n");
                     FileCounter += 1;
                 }
-                catch(Exception ex)
+                catch(Exception)
                 {
                     Debug.WriteLine("Error opening file!");
                 }
@@ -486,7 +486,7 @@ namespace Casara
                 
                 MeasuredSignalStrength.Clear();                
             }
-            catch(Exception ex)
+            catch(Exception)
             {
                 Debug.WriteLine("Exception in BTClass_OnDataReceived");
             }

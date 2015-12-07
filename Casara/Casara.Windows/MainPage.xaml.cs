@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Foundation;
@@ -28,6 +29,10 @@ using Windows.Devices.Enumeration;
 //using Microsoft.Maps.SpatialToolbox.Bing;
 //using Microsoft.Maps.SpatialToolbox.IO;
 //using Microsoft.Maps.SpatialToolbox;
+using Esri.ArcGISRuntime.Layers;
+using Esri.ArcGISRuntime.Tasks.Offline;
+using Esri.ArcGISRuntime.Geometry;
+using Esri.ArcGISRuntime.Controls;
 using Casara;
 
 // The Basic Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234237
@@ -39,6 +44,7 @@ namespace Casara
         public double Latitude;
         public double Longitude;
         public Int32 SignalStrength;
+        public double Radius;
     };
 
     /// <summary>
@@ -62,6 +68,11 @@ namespace Casara
         private StorageFolder DataFolder;
         private StorageFile DataFile;
         private Int32 FileCounter;
+        private string BaseMapUrl = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer"; //"http://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Topo_Map/MapServer";
+        private ArcGISTiledMapServiceLayer OnlineMapBaseLayer;
+        private ArcGISLocalTiledLayer LocalMapBaseLayer;
+        private GraphicsLayer DataLayer;
+        private StorageFile TilePackageFile;
         //private ShapeStyle DefaultStyle = new ShapeStyle()
         //{
         //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
@@ -113,6 +124,10 @@ namespace Casara
             BTClass = new BlueToothClass();
             ListenTask = null;
             DataFolder = ApplicationData.Current.LocalFolder;
+            OnlineMapBaseLayer = null;
+            LocalMapBaseLayer = null;
+            DataLayer = null;
+            TilePackageFile = null;
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
@@ -149,9 +164,9 @@ namespace Casara
                 MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
                 //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
-                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, 0x00ff0000);
+                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
             }
-            catch(Exception ex)
+            catch(Exception)
             {
                 StatusTextBlock.Text = "Error in navigationHelper_LoadState!\n";
             }
@@ -197,14 +212,52 @@ namespace Casara
 
         #endregion
         
+        private double haversine(double angle)
+        {
+            return (1 - Math.Cos(angle))/2;
+        }
+
+        private void CalculateCircleVertices(List<Esri.ArcGISRuntime.Geometry.MapPoint> PointList, double Longitude, double Latitude, double Radius)
+        {
+            int i, Index, IndexInc;
+            double dLat, dLong;
+            int MaxPoints = 16; //Should always be a factor of 4
+            double EarthRadius = 6400000.0; //Earth's radius in m
+            int YFactor = 1;
+
+            for (i = 0, Index = 0, IndexInc = 1; i < MaxPoints; i++, Index += IndexInc)
+            {
+                if (i == (MaxPoints/4) + 1)
+                {
+                    Index = (MaxPoints/4) - 1;
+                    IndexInc = -1;
+                    YFactor = -1;
+                }
+
+                if(i == ((MaxPoints * 3)/4) + 1)
+                {
+                    Index = -(MaxPoints/4) + 1;
+                    IndexInc = 1;
+                    YFactor = 1;
+                }
+
+                //Arguments to trig functions should be in radians, hence all the Math.PI and 180 shenanigans...
+                dLat = Index * (Radius / EarthRadius) / (MaxPoints / 4);  //in radians
+                dLong = YFactor * Math.Acos(1.0 - (haversine(Radius / EarthRadius)
+                                            - haversine(Math.Abs(dLat)))
+                                            / (Math.Cos(Math.PI * Latitude/180) * Math.Cos(Math.PI * Latitude/180 + dLat))
+                                            * 2);
+                PointList.Add(new Esri.ArcGISRuntime.Geometry.MapPoint(Longitude + dLong * 180/Math.PI, Latitude + dLat *  180/Math.PI, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84));
+            }
+        }
+
+        //Radius is in metres
         private void DrawCircle(double Longitude, double Latitude, double Radius, Int32 Intensity)
         {
             Esri.ArcGISRuntime.Geometry.Polygon Poly = null;
             List<Esri.ArcGISRuntime.Geometry.MapPoint> MapPointsList = new List<Esri.ArcGISRuntime.Geometry.MapPoint>();
-            int MaxPoints = 16;
 
-            for (int i = 0; i < MaxPoints; i++)
-                MapPointsList.Add(new Esri.ArcGISRuntime.Geometry.MapPoint(Longitude + Radius * Math.Cos(i * 3.14 / (MaxPoints / 2)), Latitude + Radius * Math.Sin(i * 3.14 / (MaxPoints / 2)), Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84));
+            CalculateCircleVertices(MapPointsList, Longitude, Latitude, Radius);
 
             Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
 
@@ -218,8 +271,7 @@ namespace Casara
             Graphic.Symbol = Fill;
 
             //Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
-
-
+            
             try
             {
                 if (MainMap.Layers.Count == 0)
@@ -228,7 +280,7 @@ namespace Casara
                 Esri.ArcGISRuntime.Layers.GraphicsLayer test = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
                 test.Graphics.Add(Graphic);
             }
-            catch(Exception ex)
+            catch(Exception)
             {
                 StatusTextBlock.Text += "Map Error\n";
             }
@@ -302,7 +354,7 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     MainMapView.SetView(NewCentre,MapScale);
-                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 0.0025, 0x00ff0000);
+                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 200, 0x00ff0000);
                 }
                 );
             }
@@ -325,11 +377,13 @@ namespace Casara
             //ColourValue.R = (byte)((Colour & 0x00ff0000) >> 16);
             //ColourValue.G = (byte)((Colour & 0x0000ff00) >> 8);
             //ColourValue.B = (byte)(Colour & 0x000000ff);
-            if(Intensity < 250)
+            if (Intensity < 205)
                 ColourValue = Windows.UI.Colors.Blue;
-            else if(Intensity >= 250 && Intensity < 500)
+            else if (Intensity >= 205 && Intensity < 410)
                 ColourValue = Windows.UI.Colors.Green;
-            else if(Intensity >= 500 && Intensity < 750)
+            else if (Intensity >= 410 && Intensity < 615)
+                ColourValue = Windows.UI.Colors.GreenYellow;
+            else if (Intensity >= 615 && Intensity < 820)
                 ColourValue = Windows.UI.Colors.Yellow;
             else
                 ColourValue = Windows.UI.Colors.Red;
@@ -375,7 +429,7 @@ namespace Casara
                     await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started" + DateTime.Now.ToString() + "\r\n");
                     FileCounter += 1;
                 }
-                catch(Exception ex)
+                catch(Exception)
                 {
                     Debug.WriteLine("Error opening file!");
                 }
@@ -434,7 +488,7 @@ namespace Casara
                 
                 MeasuredSignalStrength.Clear();                
             }
-            catch(Exception ex)
+            catch(Exception)
             {
                 Debug.WriteLine("Exception in BTClass_OnDataReceived");
             }
@@ -465,7 +519,8 @@ namespace Casara
                         {
                             SignalStrength = Convert.ToInt32(SignalList[0]),
                             Latitude = Convert.ToDouble(SignalList[1]),
-                            Longitude = Convert.ToDouble(SignalList[2])
+                            Longitude = Convert.ToDouble(SignalList[2]),
+                            Radius = 200.0
                         });
 
                         if(DataBuffer.Contains(Str+"\r\n"))
@@ -502,7 +557,7 @@ namespace Casara
                     //UpdateShapeColours(Colour);
                 }
 
-                DrawCircle(Point.Longitude, Point.Latitude, 0.0025, Point.SignalStrength);
+                DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
                 if (DataFile != null)
                     await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
                             + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
@@ -510,6 +565,129 @@ namespace Casara
             }
 
             StatusTextBlock.Text += "Finished plotting\n";
+        }
+
+        private async void onDownloadClick(object sender, RoutedEventArgs e)
+        {
+            //string BaseMapUrl = "http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer";
+            ExportTileCacheTask ExportTask = new ExportTileCacheTask(new Uri(BaseMapUrl));
+            GenerateTileCacheParameters generateOptions = new GenerateTileCacheParameters();
+            DownloadTileCacheParameters downloadOptions = new DownloadTileCacheParameters(ApplicationData.Current.TemporaryFolder);
+            TimeSpan checkInterval = TimeSpan.FromSeconds(2);
+            CancellationToken token = new CancellationToken();
+                       
+            // overwrite the file if it already exists
+            downloadOptions.OverwriteExistingFiles = true;
+
+            generateOptions.Format = ExportTileCacheFormat.TilePackage;
+            generateOptions.GeometryFilter = MainMapView.Extent; //new Envelope(15.757,73.139,14.680,74.772,Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
+            generateOptions.MinScale = 6000000.0;
+            generateOptions.MaxScale = 1.0;
+
+            StatusTextBlock.Text += "Downloading tile cache...\n";
+            // generate the tiles and download them 
+            try
+            {
+                var result = await ExportTask.GenerateTileCacheAndDownloadAsync(generateOptions,
+                                                                     downloadOptions,
+                                                                     checkInterval,
+                                                                     token,
+                                                                     null,
+                                                                     null);
+            }
+            catch(Exception)
+            {
+              
+            }
+            
+
+            if (LocalMapBaseLayer == null)
+            {
+                TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");
+                LocalMapBaseLayer = new ArcGISLocalTiledLayer(TilePackageFile);
+                await LocalMapBaseLayer.InitializeAsync();   
+            }
+            if (LocalMapBaseLayer.InitializationException == null)
+                StatusTextBlock.Text += "Download finished.\n";
+            else
+                StatusTextBlock.Text += "Download failed.\n";
+
+            
+        }
+
+        private async void onMainMapViewLoaded(object sender, RoutedEventArgs e)
+        {
+            if (OnlineMapBaseLayer == null)
+            {
+                OnlineMapBaseLayer = new ArcGISTiledMapServiceLayer(new Uri(BaseMapUrl));
+                await OnlineMapBaseLayer.InitializeAsync();
+            }
+
+            if (DataLayer == null)
+            {
+                DataLayer = new GraphicsLayer();
+                DataLayer.ID = "ShapeLayer";
+                DataLayer.Opacity = 0.5;
+                await DataLayer.InitializeAsync();
+            }
+
+            if (OnlineMapBaseLayer != null && OnlineMapBaseLayer.InitializationException == null)
+            {
+                MainMapView.Map.Layers.Add(OnlineMapBaseLayer);
+                if (DataLayer != null && DataLayer.InitializationException == null)
+                {
+                    MainMapView.Map.Layers.Add(DataLayer);
+                }
+                else
+                {
+                    StatusTextBlock.Text += "Something wrong adding Datalayer.\n";
+                }
+            }
+            else
+            {
+                StatusTextBlock.Text += "Something wrong in BaseLayer\n";
+            }
+            
+            //if (LocalMapBaseLayer == null)
+            //{
+            //    TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");
+            //    LocalMapBaseLayer = new ArcGISLocalTiledLayer(TilePackageFile);
+            //    await LocalMapBaseLayer.InitializeAsync();
+            //}
+            //if (LocalMapBaseLayer.InitializationException == null)
+            //    StatusTextBlock.Text += "Download finished.\n";
+            //else
+            //    StatusTextBlock.Text += "Download failed.\n";
+            //if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
+            //{
+            //    MainMapView.Map.Layers.Clear();
+            //    MainMapView.Map.Layers.Add(LocalMapBaseLayer);
+            //    if (DataLayer != null && DataLayer.InitializationException == null)
+            //        MainMapView.Map.Layers.Add(DataLayer);
+            //}
+
+        }
+
+        private void OnlineRadioButtonChecked(object sender, RoutedEventArgs e)
+        {
+            if(OnlineMapBaseLayer != null && OnlineMapBaseLayer.InitializationException == null)
+            {
+                MainMapView.Map.Layers.Clear();
+                MainMapView.Map.Layers.Add(OnlineMapBaseLayer);
+                if (DataLayer != null && DataLayer.InitializationException == null)
+                    MainMapView.Map.Layers.Add(DataLayer);
+            }
+        }
+
+        private void LocalRadioButtonChecked(object sender, RoutedEventArgs e)
+        {
+            if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
+            {
+                MainMapView.Map.Layers.Clear();
+                MainMapView.Map.Layers.Add(LocalMapBaseLayer);
+                if (DataLayer != null && DataLayer.InitializationException == null)
+                    MainMapView.Map.Layers.Add(DataLayer);
+            }
         }
 
         //private void TestSpeed()

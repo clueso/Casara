@@ -73,6 +73,7 @@ namespace Casara
         private ArcGISLocalTiledLayer LocalMapBaseLayer;
         private GraphicsLayer DataLayer;
         private StorageFile TilePackageFile;
+        private bool TilePackageAvailable;
         //private ShapeStyle DefaultStyle = new ShapeStyle()
         //{
         //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
@@ -120,7 +121,7 @@ namespace Casara
             MaxIntensity = 100;
             MinIntensity = 0;
             StayTimer = new Stopwatch();
-            MapScale = 591657;
+            MapScale = 600000;
             BTClass = new BlueToothClass();
             ListenTask = null;
             DataFolder = ApplicationData.Current.LocalFolder;
@@ -128,6 +129,7 @@ namespace Casara
             LocalMapBaseLayer = null;
             DataLayer = null;
             TilePackageFile = null;
+            TilePackageAvailable = false;
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
@@ -421,6 +423,8 @@ namespace Casara
 
         private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
         {
+            bool BTDeviceFound = false;
+
             if (DataFolder != null)
             {
                 try
@@ -436,10 +440,24 @@ namespace Casara
             }
 
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
-            //DeviceInformation ChosenDevice = ConnectedDevices.First(Device => Device.Id.Equals("HC-05"));
             //Ashwin BT = HC-05
             //Daniel BT = RNBT-6971
-            await BTClass.ConnectDevice(ConnectedDevices.First(Device => Device.Name.Equals("RNBT-6971")));
+            foreach(DeviceInformation DevInfo in ConnectedDevices)
+            {
+                if (DevInfo.Name.Equals("HC-05") || DevInfo.Name.Equals("RNBT-6971"))
+                {
+                    await BTClass.ConnectDevice(DevInfo);
+                    BTDeviceFound = true;
+                    break;
+                }
+            }
+            
+            if(!BTDeviceFound)
+            {
+                StatusTextBlock.Text += "No known BT device found...stopping\n";
+                return;
+            }
+
             ListenTask = BTClass.ListenForData();
             //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
             //ParseMessage();
@@ -573,18 +591,55 @@ namespace Casara
             ExportTileCacheTask ExportTask = new ExportTileCacheTask(new Uri(BaseMapUrl));
             GenerateTileCacheParameters generateOptions = new GenerateTileCacheParameters();
             DownloadTileCacheParameters downloadOptions = new DownloadTileCacheParameters(ApplicationData.Current.TemporaryFolder);
-            TimeSpan checkInterval = TimeSpan.FromSeconds(2);
+            TimeSpan checkInterval = TimeSpan.FromSeconds(1);
             CancellationToken token = new CancellationToken();
+            double CurrMapScale = MainMapView.Scale;
+            String TextBlockContent;
+
+            StatusTextBlock.Text += "Downloading tile cache...\n";
+            TextBlockContent = StatusTextBlock.Text;
+
+            var creationProgress = new Progress<ExportTileCacheJob>(p => 
+            {
+                foreach (var m in p.Messages)
+                {
+                    if (m.Description.Contains("Executing..."))
+                    {
+                        StatusTextBlock.Text = TextBlockContent + "Starting cache generation...\n";
+                    }
+                    // find messages with percent complete
+                    // "Finished:: 9 percent", e.g.
+                    if (m.Description.Contains("Finished::"))
+                    {
+                        // parse out the percentage complete and update the progress bar
+                        var numString = m.Description.Substring(m.Description.IndexOf("::") + 2, 3).Trim();
+                        var pct = 0.0;
+                        if (double.TryParse(numString, out pct))
+                        {
+                            StatusTextBlock.Text = TextBlockContent + pct.ToString() + "Completed\n";
+                        }
+                    }
+                }
+            });
+
+            // show download progress 
+            var downloadProgress = new Progress<ExportTileCacheDownloadProgress>(p => 
+            {
+                double DownloadCompletePct;
+                DownloadCompletePct = Math.Round(p.ProgressPercentage * 100);
+                StatusTextBlock.Text = TextBlockContent + "Downloading...\n" + DownloadCompletePct.ToString() + "% complete\n";
+            });
+            
                        
             // overwrite the file if it already exists
             downloadOptions.OverwriteExistingFiles = true;
 
             generateOptions.Format = ExportTileCacheFormat.TilePackage;
+            generateOptions.CompressTileCache = false;
             generateOptions.GeometryFilter = MainMapView.Extent; //new Envelope(15.757,73.139,14.680,74.772,Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
-            generateOptions.MinScale = 6000000.0;
+            generateOptions.MinScale = CurrMapScale;
             generateOptions.MaxScale = 1.0;
-
-            StatusTextBlock.Text += "Downloading tile cache...\n";
+            
             // generate the tiles and download them 
             try
             {
@@ -592,25 +647,37 @@ namespace Casara
                                                                      downloadOptions,
                                                                      checkInterval,
                                                                      token,
-                                                                     null,
-                                                                     null);
+                                                                     creationProgress,
+                                                                     downloadProgress);
             }
             catch(Exception)
             {
-              
+                StatusTextBlock.Text += "Downloading Tile Package failed...stopping\n";
+                return;
             }
             
-
             if (LocalMapBaseLayer == null)
             {
                 TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");
                 LocalMapBaseLayer = new ArcGISLocalTiledLayer(TilePackageFile);
-                await LocalMapBaseLayer.InitializeAsync();   
+                LocalMapBaseLayer.MaxScale = 1.0;
+                LocalMapBaseLayer.MinScale = CurrMapScale;
+                await LocalMapBaseLayer.InitializeAsync();
             }
-            if (LocalMapBaseLayer.InitializationException == null)
+            
+            if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
+            {
                 StatusTextBlock.Text += "Download finished.\n";
+                TilePackageAvailable = true;
+                OnlineRadioButton.IsEnabled = true;
+                LocalRadioButton.IsEnabled = true;
+                MapScale = MainMapView.Scale;
+            }                
             else
+            {
                 StatusTextBlock.Text += "Download failed.\n";
+            }
+                
 
             
         }
@@ -676,6 +743,8 @@ namespace Casara
                 MainMapView.Map.Layers.Add(OnlineMapBaseLayer);
                 if (DataLayer != null && DataLayer.InitializationException == null)
                     MainMapView.Map.Layers.Add(DataLayer);
+                MainMapView.MinScale = Double.NaN;
+                MainMapView.MaxScale = 1;
             }
         }
 
@@ -687,7 +756,14 @@ namespace Casara
                 MainMapView.Map.Layers.Add(LocalMapBaseLayer);
                 if (DataLayer != null && DataLayer.InitializationException == null)
                     MainMapView.Map.Layers.Add(DataLayer);
+                MainMapView.MinScale = MapScale;
+                MainMapView.MaxScale = 1;
             }
+        }
+
+        private void onManipulationComplete(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            AccuracyBox.Text = "Scale = " + MainMapView.Scale.ToString();
         }
 
         //private void TestSpeed()

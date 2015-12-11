@@ -264,7 +264,7 @@ namespace Casara
             Poly = new Esri.ArcGISRuntime.Geometry.Polygon(MapPointsList);
 
             Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = new Esri.ArcGISRuntime.Symbology.SimpleFillSymbol();
-            Fill.Color = CalculateIntensityColour(Intensity, 255);
+            Fill.Color = CalculateIntensityColour(Intensity, 128);
             Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
 
             // Create a new graphic and set it's geometry and symbol. 
@@ -290,22 +290,6 @@ namespace Casara
             StatusTextBlock.Text += "DrawCircle done...\n";
         }
 
-        //private void ChangeShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly, Int32 Intensity)
-        //{
-        //    Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
-
-        //    Fill.Color = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff)); ;
-        //    Fill.Style = Esri.ArcGISRuntime.Symbology.SimpleFillStyle.Solid;
-        //}
-
-        //private Int32 GetShapeColour(Esri.ArcGISRuntime.Layers.Graphic Poly)
-        //{
-        //    Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)Poly.Symbol;
-
-        //    Int32 Colour = (Fill.Color.A << 24) | (Fill.Color.R << 16) | (Fill.Color.G << 8) | (Fill.Color.B);
-        //    return Colour;
-        //}
-
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -324,25 +308,6 @@ namespace Casara
             }            
         }
 
-        //private void UpdateShapeColours(Int32 Change)
-        //{
-        //    Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
-        //    Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
-        //    byte A, R = (byte)((Change & 0x00ff0000) >> 16), G = (byte)((Change & 0x0000ff00) >> 8), B = (byte)(Change & 0x000000ff);
-        //    int i;
-
-        //    for (i = 0; i < GraphicsList.Count; i++)
-        //    {
-        //        Esri.ArcGISRuntime.Symbology.SimpleFillSymbol Fill = (Esri.ArcGISRuntime.Symbology.SimpleFillSymbol)GraphicsList[i].Symbol;
-
-        //        A = Fill.Color.A;
-        //        R += Fill.Color.R;
-        //        G += Fill.Color.G;
-        //        B += Fill.Color.B;
-        //        Fill.Color = Windows.UI.Color.FromArgb(A, R, G, B);
-        //    }
-        //}
-
         async private void GPSPositionChanged(Geolocator sender, PositionChangedEventArgs e)
         {
             Geoposition Position = null;
@@ -356,7 +321,7 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     MainMapView.SetView(NewCentre,MapScale);
-                    DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 200, 0x00ff0000);
+                    //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 200, 0x00ff0000);
                 }
                 );
             }
@@ -367,29 +332,27 @@ namespace Casara
             
         }
 
+        private byte CalculateGreen(int Intensity)
+        {
+            if (Intensity < 128)
+                return 0;
+            else if (Intensity >= 128 && Intensity < 384)
+                return (byte)(Intensity - 128);
+            else if (Intensity >= 384 && Intensity < 640)
+                return 255;
+            else if (Intensity >= 640 && Intensity < 896)
+                return (byte)(255 - (Intensity - 640));
+            else
+                return 0;
+        }
+
         //For 100% opacity, pass a value to 255, for 0% pass a value of 0
         private Windows.UI.Color CalculateIntensityColour(Int32 Intensity, byte Opacity)
         {
             Windows.UI.Color ColourValue;
-            //Int32 Colour;
-            //Int32 Delta = (0x00ff0000 - 0x000000ff) / 1024;
-
-            //Colour = Intensity * Delta + 0x000000ff;
-
-            //ColourValue.R = (byte)((Colour & 0x00ff0000) >> 16);
-            //ColourValue.G = (byte)((Colour & 0x0000ff00) >> 8);
-            //ColourValue.B = (byte)(Colour & 0x000000ff);
-            if (Intensity < 205)
-                ColourValue = Windows.UI.Colors.Blue;
-            else if (Intensity >= 205 && Intensity < 410)
-                ColourValue = Windows.UI.Colors.Green;
-            else if (Intensity >= 410 && Intensity < 615)
-                ColourValue = Windows.UI.Colors.GreenYellow;
-            else if (Intensity >= 615 && Intensity < 820)
-                ColourValue = Windows.UI.Colors.Yellow;
-            else
-                ColourValue = Windows.UI.Colors.Red;
-
+            ColourValue.R = CalculateGreen(Intensity - 256);
+            ColourValue.G = CalculateGreen(Intensity);
+            ColourValue.B = CalculateGreen(Intensity + 256);
             ColourValue.A = Opacity;
 
             return ColourValue;
@@ -538,7 +501,7 @@ namespace Casara
                             SignalStrength = Convert.ToInt32(SignalList[0]),
                             Latitude = Convert.ToDouble(SignalList[1]),
                             Longitude = Convert.ToDouble(SignalList[2]),
-                            Radius = 200.0
+                            Radius = 100.0
                         });
 
                         if(DataBuffer.Contains(Str+"\r\n"))
@@ -585,6 +548,57 @@ namespace Casara
             StatusTextBlock.Text += "Finished plotting\n";
         }
 
+        private void creationProgress_ProgressChanged(Object sender, ExportTileCacheJob p)
+        {
+            String TextBlockContent = StatusTextBlock.Text;
+
+            foreach (var m in p.Messages)
+            {
+                if (m.Description.Contains("Executing..."))
+                {
+                    StatusTextBlock.Text = TextBlockContent + "Starting cache generation...\n";
+                }
+                // find messages with percent complete
+                // "Finished:: 9 percent", e.g.
+                if (m.Description.Contains("Finished::"))
+                {
+                    // parse out the percentage complete and update the progress bar
+                    var numString = m.Description.Substring(m.Description.IndexOf("::") + 2, 3).Trim();
+                    var pct = 0.0;
+                    if (double.TryParse(numString, out pct))
+                    {
+                        try
+                        {
+                            TextBlockContent = StatusTextBlock.Text.Remove(StatusTextBlock.Text.IndexOf("Caching..."));
+                        }
+                        catch (Exception)
+                        {
+                            //Empty handler to handle exception for the first time the try block is executed.
+                        }
+
+                        StatusTextBlock.Text = TextBlockContent + "Caching..." + pct.ToString() + "% complete\n";
+                    }
+                }
+            }
+        }
+
+        private void downloadProgress_ProgressChanged(Object sender, ExportTileCacheDownloadProgress p)
+        {
+            double DownloadCompletePct;
+            String TextBlockContent = StatusTextBlock.Text;
+            try
+            {
+                TextBlockContent = StatusTextBlock.Text.Remove(StatusTextBlock.Text.IndexOf("Downloading..."));
+            }
+            catch(Exception)
+            {
+                //Empty handler to handle exception for the first time the try block is executed.
+            }
+
+            DownloadCompletePct = Math.Round(p.ProgressPercentage * 100);
+            StatusTextBlock.Text = TextBlockContent + "Downloading...\n" + DownloadCompletePct.ToString() + "% complete\n";
+        }
+
         private async void onDownloadClick(object sender, RoutedEventArgs e)
         {
             //string BaseMapUrl = "http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer";
@@ -594,41 +608,16 @@ namespace Casara
             TimeSpan checkInterval = TimeSpan.FromSeconds(1);
             CancellationToken token = new CancellationToken();
             double CurrMapScale = MainMapView.Scale;
-            String TextBlockContent;
 
             StatusTextBlock.Text += "Downloading tile cache...\n";
-            TextBlockContent = StatusTextBlock.Text;
 
-            var creationProgress = new Progress<ExportTileCacheJob>(p => 
-            {
-                foreach (var m in p.Messages)
-                {
-                    if (m.Description.Contains("Executing..."))
-                    {
-                        StatusTextBlock.Text = TextBlockContent + "Starting cache generation...\n";
-                    }
-                    // find messages with percent complete
-                    // "Finished:: 9 percent", e.g.
-                    if (m.Description.Contains("Finished::"))
-                    {
-                        // parse out the percentage complete and update the progress bar
-                        var numString = m.Description.Substring(m.Description.IndexOf("::") + 2, 3).Trim();
-                        var pct = 0.0;
-                        if (double.TryParse(numString, out pct))
-                        {
-                            StatusTextBlock.Text = TextBlockContent + pct.ToString() + "Completed\n";
-                        }
-                    }
-                }
-            });
+            //Tile Cache generation progress
+            Progress<ExportTileCacheJob> creationProgress = new Progress<ExportTileCacheJob>();
+            creationProgress.ProgressChanged += creationProgress_ProgressChanged;
 
-            // show download progress 
-            var downloadProgress = new Progress<ExportTileCacheDownloadProgress>(p => 
-            {
-                double DownloadCompletePct;
-                DownloadCompletePct = Math.Round(p.ProgressPercentage * 100);
-                StatusTextBlock.Text = TextBlockContent + "Downloading...\n" + DownloadCompletePct.ToString() + "% complete\n";
-            });
+            //Download progress 
+            Progress<ExportTileCacheDownloadProgress> downloadProgress = new Progress<ExportTileCacheDownloadProgress>();
+            downloadProgress.ProgressChanged += downloadProgress_ProgressChanged;
             
                        
             // overwrite the file if it already exists
@@ -676,10 +665,7 @@ namespace Casara
             else
             {
                 StatusTextBlock.Text += "Download failed.\n";
-            }
-                
-
-            
+            }    
         }
 
         private async void onMainMapViewLoaded(object sender, RoutedEventArgs e)
@@ -694,7 +680,7 @@ namespace Casara
             {
                 DataLayer = new GraphicsLayer();
                 DataLayer.ID = "ShapeLayer";
-                DataLayer.Opacity = 0.5;
+                DataLayer.Opacity = 1;
                 await DataLayer.InitializeAsync();
             }
 
@@ -714,25 +700,9 @@ namespace Casara
             {
                 StatusTextBlock.Text += "Something wrong in BaseLayer\n";
             }
-            
-            //if (LocalMapBaseLayer == null)
-            //{
-            //    TilePackageFile = await ApplicationData.Current.TemporaryFolder.GetFileAsync("World_Street_Map.tpk");
-            //    LocalMapBaseLayer = new ArcGISLocalTiledLayer(TilePackageFile);
-            //    await LocalMapBaseLayer.InitializeAsync();
-            //}
-            //if (LocalMapBaseLayer.InitializationException == null)
-            //    StatusTextBlock.Text += "Download finished.\n";
-            //else
-            //    StatusTextBlock.Text += "Download failed.\n";
-            //if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
-            //{
-            //    MainMapView.Map.Layers.Clear();
-            //    MainMapView.Map.Layers.Add(LocalMapBaseLayer);
-            //    if (DataLayer != null && DataLayer.InitializationException == null)
-            //        MainMapView.Map.Layers.Add(DataLayer);
-            //}
 
+            //Geoposition Position = await GPS.GetGPSLocation();
+            //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 300);
         }
 
         private void OnlineRadioButtonChecked(object sender, RoutedEventArgs e)

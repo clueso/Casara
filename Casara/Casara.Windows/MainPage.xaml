@@ -98,9 +98,10 @@
                 <TextBox x:Name="AccuracyBox" HorizontalAlignment="Left" Grid.Row="6" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Accuracy =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
                 <TextBox x:Name="SignalStrengthTextBox" HorizontalAlignment="Left" Grid.Row="7" Grid.ColumnSpan="2" TextWrapping="Wrap" Text="Signal =" VerticalAlignment="Top" Width="200" Margin="3,4,0,0"/>
                 <ScrollViewer Grid.Row="8" Grid.ColumnSpan="2">
-                    <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Grid.Row="8" Grid.ColumnSpan="2" TextWrapping="Wrap" VerticalAlignment="Top" Height="512" Width="200" Margin="3,4,0,0"/>
-                </ScrollViewer>                
+                    <TextBlock x:Name="StatusTextBlock" HorizontalAlignment="Left" Grid.Row="8" Grid.ColumnSpan="2" TextWrapping="Wrap" VerticalAlignment="Top" Height="420" Width="200" Margin="3,50,0,0"/>
+                </ScrollViewer>
             </Grid>
         </Grid>
+        <Image x:Name="ColourBarImgBox" HorizontalAlignment="Left" Height="22" Margin="81,743,0,0" VerticalAlignment="Top" Width="1275" Source="Assets/FullColourBar.png" Stretch="None"/>
     </Grid>
 </Page>

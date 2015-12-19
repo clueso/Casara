@@ -31,7 +31,7 @@
             </TransitionCollection>
         </Grid.ChildrenTransitions>
 
-        <esri:MapView x:Name="MainMapView" Grid.Column="1" Loaded="onMainMapViewLoaded" MaxScale="1" MinScale="6000000000" ManipulationCompleted="onManipulationComplete">
+        <esri:MapView x:Name="MainMapView" Grid.Column="1" Loaded="onMainMapViewLoaded" MaxScale="1" MinScale="6000000000">
             <esri:Map x:Name="MainMap">
                 <!--layers:ArcGISTiledMapServiceLayer ID="BaseMap" ServiceUri="http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer"/-->
                 <!--layers:GraphicsLayer ID="ShapeLayer"/-->

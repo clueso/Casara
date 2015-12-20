@@ -45,6 +45,7 @@ namespace Casara
         public double Longitude;
         public Int32 SignalStrength;
         public double Radius;
+        public bool Plotted;
     };
 
     /// <summary>
@@ -67,13 +68,13 @@ namespace Casara
         private string DataBuffer;
         private StorageFolder DataFolder;
         private StorageFile DataFile;
-        private Int32 FileCounter;
-        private string BaseMapUrl = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer"; //"http://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Topo_Map/MapServer";
+        //private string BaseMapUrl = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/World_Street_Map/MapServer";
+        private string BaseMapUrl = "http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer";
         private ArcGISTiledMapServiceLayer OnlineMapBaseLayer;
         private ArcGISLocalTiledLayer LocalMapBaseLayer;
         private GraphicsLayer DataLayer;
         private StorageFile TilePackageFile;
-        private bool TilePackageAvailable;
+        private int DefaultRadius;
         //private ShapeStyle DefaultStyle = new ShapeStyle()
         //{
         //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
@@ -129,14 +130,14 @@ namespace Casara
             LocalMapBaseLayer = null;
             DataLayer = null;
             TilePackageFile = null;
-            TilePackageAvailable = false;
+            DefaultRadius = 20;
+            SpotSizeTextBox.Text = DefaultRadius.ToString();
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
             //auto services = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(
                 //RfcommServiceId.ObexObjectPush));
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
-            FileCounter = 0;
         }
 
         /// <summary>
@@ -165,15 +166,16 @@ namespace Casara
                 MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
                 MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
+                BTStopButton.IsEnabled = false;
                 //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
                 //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
             }
             catch(Exception)
             {
-                StatusTextBlock.Text = "Error in navigationHelper_LoadState!\n";
+                StatusTextBox.Text = "Error in navigationHelper_LoadState!\n";
             }
 
-            StatusTextBlock.Text += "State Loaded...\n";
+            StatusTextBox.Text += "State Loaded...\n";
         }
 
         /// <summary>
@@ -279,15 +281,17 @@ namespace Casara
                 if (MainMap.Layers.Count == 0)
                     MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
 
-                Esri.ArcGISRuntime.Layers.GraphicsLayer test = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
-                test.Graphics.Add(Graphic);
+                //Esri.ArcGISRuntime.Layers.GraphicsLayer test = MainMapView.Map.Layers["ShapeLayer"] as Esri.ArcGISRuntime.Layers.GraphicsLayer;
+                //test.Graphics.Add(Graphic);
+                if (DataLayer != null)
+                    DataLayer.Graphics.Add(Graphic);
             }
             catch(Exception)
             {
-                StatusTextBlock.Text += "Map Error\n";
+                StatusTextBox.Text += "Map Error\n";
             }
 
-            StatusTextBlock.Text += "DrawCircle done...\n";
+            StatusTextBox.Text += "DrawCircle done...\n";
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
@@ -304,7 +308,7 @@ namespace Casara
             }
             catch (Exception)
             {
-                StatusTextBlock.Text += "Error in StartButton_Click!\n";
+                StatusTextBox.Text += "Error in StartButton_Click!\n";
             }            
         }
 
@@ -369,19 +373,36 @@ namespace Casara
             StayTimer.Stop();
         }
 
-        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        private void ClearPoints(bool ClearData)
         {
             try
             {
-                Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = (Esri.ArcGISRuntime.Layers.GraphicsLayer)MainMapView.Map.Layers["ShapeLayer"];
+                Esri.ArcGISRuntime.Layers.GraphicsLayer GraphLayer = MainMapView.Map.Layers["ShapeLayer"] as Esri.ArcGISRuntime.Layers.GraphicsLayer;
                 Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
                 GraphicsList.Clear();
+                if (ClearData == true)
+                    MeasuredSignalStrength.Clear();
             }
-            catch(Exception)
+            catch (Exception)
             {
-                StatusTextBlock.Text = "error in ClearButton_Click";
+                StatusTextBox.Text = "error in ClearButton_Click";
             }
-            
+        }
+        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            ClearPoints(true);          
+        }
+
+        private string CreateFileName()
+        {
+            string FileName;
+
+            FileName = "Datafile_" + DateTime.Now.ToString() + ".txt";
+            FileName = FileName.Replace(' ', '_');
+            FileName = FileName.Replace(':', '_');
+            FileName = FileName.Replace('-', '_');
+
+            return FileName;
         }
 
         private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
@@ -392,9 +413,8 @@ namespace Casara
             {
                 try
                 {
-                    DataFile = await DataFolder.CreateFileAsync("DataFile_" + FileCounter.ToString() + ".txt", CreationCollisionOption.ReplaceExisting);
-                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started" + DateTime.Now.ToString() + "\r\n");
-                    FileCounter += 1;
+                    DataFile = await DataFolder.CreateFileAsync(CreateFileName(), CreationCollisionOption.ReplaceExisting);
+                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started " + DateTime.Now.ToString() + "\r\n");
                 }
                 catch(Exception)
                 {
@@ -417,11 +437,13 @@ namespace Casara
             
             if(!BTDeviceFound)
             {
-                StatusTextBlock.Text += "No known BT device found...stopping\n";
+                StatusTextBox.Text += "No known BT device found...stopping\n";
                 return;
             }
 
             ListenTask = BTClass.ListenForData();
+            BTStartButton.IsEnabled = false;
+            BTStopButton.IsEnabled = true;
             //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
             //ParseMessage();
             //PlotList();
@@ -430,6 +452,8 @@ namespace Casara
         private void BTStop_Clicked(object sender, RoutedEventArgs e)
         {
             BTClass.DisconnectDevice();
+            BTStartButton.IsEnabled = true;
+            BTStopButton.IsEnabled = false;
             if (DataFile != null)
                 DataFile = null;
             //DataBuffer += ",-123.17\r\n100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n";
@@ -467,7 +491,7 @@ namespace Casara
                     Debug.WriteLine("Exception in BTClass_OnDataReceived:setting text boxes");
                 }
                 
-                MeasuredSignalStrength.Clear();                
+                //MeasuredSignalStrength.Clear();                
             }
             catch(Exception)
             {
@@ -479,12 +503,15 @@ namespace Casara
         void ParseMessage()
         {
             string TrimmedMessage;
-            string ProcessedString;
-
-            if(DataBuffer.Contains("\n"))
-                TrimmedMessage = DataBuffer.Substring(0, DataBuffer.LastIndexOf('\n'));
-            else
+            int SubStringIndex;
+            
+            SubStringIndex = DataBuffer.LastIndexOf('\n');
+            if(SubStringIndex < 0)
                 TrimmedMessage = DataBuffer;
+            else
+                TrimmedMessage = DataBuffer.Substring(0, SubStringIndex);
+
+            DataBuffer = DataBuffer.Remove(0, TrimmedMessage.Length - 1);
 
             string[] DataPointList = TrimmedMessage.Split('\r', '\n');
 
@@ -501,30 +528,45 @@ namespace Casara
                             SignalStrength = Convert.ToInt32(SignalList[0]),
                             Latitude = Convert.ToDouble(SignalList[1]),
                             Longitude = Convert.ToDouble(SignalList[2]),
-                            Radius = 100.0
+                            Radius = DefaultRadius,
+                            Plotted = false
                         });
 
-                        if(DataBuffer.Contains(Str+"\r\n"))
-                            ProcessedString = Str + "\r\n";
-                        else if(DataBuffer.Contains(Str+"\r"))
-                            ProcessedString = Str + "\r";
-                        else
-                            ProcessedString = Str;
+                        //SubStringLength = Str.Length;
+                        //SubStringIndex = DataBuffer.IndexOf(Str);
 
-                        DataBuffer = DataBuffer.Remove(DataBuffer.IndexOf(ProcessedString), ProcessedString.Length);                            
+                        //if (DataBuffer[SubStringIndex + SubStringLength + 1] == '\r')
+                        //    SubStringLength = SubStringLength + 1;
+                        //if (DataBuffer[SubStringIndex + SubStringLength + 1] == '\n')
+                        //    SubStringLength = SubStringLength + 1;
+
+                        //if(DataBuffer.Contains(Str+"\r\n"))
+                        //    ProcessedString = Str + "\r\n";
+                        //else if(DataBuffer.Contains(Str+"\r"))
+                        //    ProcessedString = Str + "\r";
+                        //else
+                        //    ProcessedString = Str;
+
+                        //DataBuffer = DataBuffer.Remove(SubStringIndex, SubStringLength);
                     }                                                      
                 }                
             }
 
             //if(DataBuffer.Contains("\n"))
             //    DataBuffer = DataBuffer.Remove(0, DataBuffer.LastIndexOf('\n') + 1);
-            StatusTextBlock.Text += "Done Parsing: " + MeasuredSignalStrength.Count.ToString() + " Points.\n";
+            StatusTextBox.Text += "Done Parsing: " + MeasuredSignalStrength.Count.ToString() + " Points.\n";
         }
 
         private async Task PlotList()
         {
-            foreach(ArduinoDataPoint Point in MeasuredSignalStrength)
+            ArduinoDataPoint Point;
+            int Index;
+            int i;
+                        
+            for (i = 0; i < MeasuredSignalStrength.Count; i++)
             {
+                Point = MeasuredSignalStrength[i];
+
                 if (Point.SignalStrength > MaxIntensity)
                 {
                     MaxIntensity = Point.SignalStrength;
@@ -538,25 +580,29 @@ namespace Casara
                     //UpdateShapeColours(Colour);
                 }
 
-                DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
-                if (DataFile != null)
-                    await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
-                            + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
-
+                if (Point.Plotted == false)
+                {
+                    DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
+                    Point.Plotted = true;
+                    MeasuredSignalStrength[i] = Point;
+                    if (DataFile != null)
+                        await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
+                                + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
+                }
             }
 
-            StatusTextBlock.Text += "Finished plotting\n";
+            StatusTextBox.Text += "Finished plotting\n";
         }
 
         private void creationProgress_ProgressChanged(Object sender, ExportTileCacheJob p)
         {
-            String TextBlockContent = StatusTextBlock.Text;
+            String TextBlockContent = StatusTextBox.Text;
 
             foreach (var m in p.Messages)
             {
                 if (m.Description.Contains("Executing..."))
                 {
-                    StatusTextBlock.Text = TextBlockContent + "Starting cache generation...\n";
+                    StatusTextBox.Text = TextBlockContent + "Starting cache generation...\n";
                 }
                 // find messages with percent complete
                 // "Finished:: 9 percent", e.g.
@@ -569,14 +615,14 @@ namespace Casara
                     {
                         try
                         {
-                            TextBlockContent = StatusTextBlock.Text.Remove(StatusTextBlock.Text.IndexOf("Caching..."));
+                            TextBlockContent = StatusTextBox.Text.Remove(StatusTextBox.Text.IndexOf("Caching..."));
                         }
                         catch (Exception)
                         {
                             //Empty handler to handle exception for the first time the try block is executed.
                         }
 
-                        StatusTextBlock.Text = TextBlockContent + "Caching..." + pct.ToString() + "% complete\n";
+                        StatusTextBox.Text = TextBlockContent + "Caching..." + pct.ToString() + "% complete\n";
                     }
                 }
             }
@@ -585,10 +631,10 @@ namespace Casara
         private void downloadProgress_ProgressChanged(Object sender, ExportTileCacheDownloadProgress p)
         {
             double DownloadCompletePct;
-            String TextBlockContent = StatusTextBlock.Text;
+            String TextBlockContent = StatusTextBox.Text;
             try
             {
-                TextBlockContent = StatusTextBlock.Text.Remove(StatusTextBlock.Text.IndexOf("Downloading..."));
+                TextBlockContent = StatusTextBox.Text.Remove(StatusTextBox.Text.IndexOf("Downloading..."));
             }
             catch(Exception)
             {
@@ -596,12 +642,11 @@ namespace Casara
             }
 
             DownloadCompletePct = Math.Round(p.ProgressPercentage * 100);
-            StatusTextBlock.Text = TextBlockContent + "Downloading...\n" + DownloadCompletePct.ToString() + "% complete\n";
+            StatusTextBox.Text = TextBlockContent + "Downloading...\n" + DownloadCompletePct.ToString() + "% complete\n";
         }
 
         private async void onDownloadClick(object sender, RoutedEventArgs e)
         {
-            //string BaseMapUrl = "http://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer";
             ExportTileCacheTask ExportTask = new ExportTileCacheTask(new Uri(BaseMapUrl));
             GenerateTileCacheParameters generateOptions = new GenerateTileCacheParameters();
             DownloadTileCacheParameters downloadOptions = new DownloadTileCacheParameters(ApplicationData.Current.TemporaryFolder);
@@ -609,7 +654,7 @@ namespace Casara
             CancellationToken token = new CancellationToken();
             double CurrMapScale = MainMapView.Scale;
 
-            StatusTextBlock.Text += "Downloading tile cache...\n";
+            StatusTextBox.Text += "Downloading tile cache...\n";
 
             //Tile Cache generation progress
             Progress<ExportTileCacheJob> creationProgress = new Progress<ExportTileCacheJob>();
@@ -641,7 +686,7 @@ namespace Casara
             }
             catch(Exception)
             {
-                StatusTextBlock.Text += "Downloading Tile Package failed...stopping\n";
+                StatusTextBox.Text += "Downloading Tile Package failed...stopping\n";
                 return;
             }
             
@@ -656,15 +701,14 @@ namespace Casara
             
             if (LocalMapBaseLayer != null && LocalMapBaseLayer.InitializationException == null)
             {
-                StatusTextBlock.Text += "Download finished.\n";
-                TilePackageAvailable = true;
+                StatusTextBox.Text += "Download finished.\n";
                 OnlineRadioButton.IsEnabled = true;
                 LocalRadioButton.IsEnabled = true;
                 MapScale = MainMapView.Scale;
             }                
             else
             {
-                StatusTextBlock.Text += "Download failed.\n";
+                StatusTextBox.Text += "Download failed.\n";
             }    
         }
 
@@ -693,16 +737,13 @@ namespace Casara
                 }
                 else
                 {
-                    StatusTextBlock.Text += "Something wrong adding Datalayer.\n";
+                    StatusTextBox.Text += "Something wrong adding Datalayer.\n";
                 }
             }
             else
             {
-                StatusTextBlock.Text += "Something wrong in BaseLayer\n";
+                StatusTextBox.Text += "Something wrong in BaseLayer\n";
             }
-
-            //Geoposition Position = await GPS.GetGPSLocation();
-            //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 300);
         }
 
         private void OnlineRadioButtonChecked(object sender, RoutedEventArgs e)
@@ -731,9 +772,33 @@ namespace Casara
             }
         }
 
-        private void onManipulationComplete(object sender, ManipulationCompletedRoutedEventArgs e)
+        private void UpdateSpotSize()
         {
-            AccuracyBox.Text = "Scale = " + MainMapView.Scale.ToString();
+            int i;
+            ArduinoDataPoint tmp;
+
+            for (i = 0; i < MeasuredSignalStrength.Count; i++)
+            {
+                tmp = MeasuredSignalStrength[i];
+                tmp.Radius = DefaultRadius;
+                tmp.Plotted = false;
+                MeasuredSignalStrength[i] = tmp;
+            }
+        }
+
+        private async void MainPage_onSpotSizeClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                DefaultRadius = Convert.ToInt32(SpotSizeTextBox.Text);
+                UpdateSpotSize();
+                ClearPoints(false);
+                await PlotList();
+            }
+            catch(Exception)
+            {
+                StatusTextBox.Text += "Invalid number\n";
+            }
         }
 
         //private void TestSpeed()
@@ -757,7 +822,7 @@ namespace Casara
         //        //DrawCircle(49,122,0.25,0x0000ff);//R.NextDouble()*180-90,R.NextDouble()*360-180
         //        //test.DrawCircle(R.Next(50, 400), R.Next(50, 400), brush);
         //    }
-        //    StatusTextBlock.Text += "Added circles...\n";
+        //    StatusTextBox.Text += "Added circles...\n";
         //}
 
         //private void MainMap_Viewchanged(object sender, ViewChangedEventArgs e)

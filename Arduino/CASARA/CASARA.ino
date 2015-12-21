@@ -159,9 +159,9 @@ ISR(TIMER1_COMPA_vect){//timer1 interrupt 1Hz toggles pin 13 (LED)
     Serial.print(maximum);
     if (GPS.fix) {
       Serial.print(", "); 
-      Serial.print(GPS.latitudeDegrees, 4);
+      Serial.print(GPS.latitudeDegrees, 5);
       Serial.print(", "); 
-      Serial.println(GPS.longitudeDegrees, 4);
+      Serial.println(GPS.longitudeDegrees, 5);
     }
     maximum = 0;
     toggle1 = 0;

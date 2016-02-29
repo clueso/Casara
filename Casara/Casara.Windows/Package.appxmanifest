@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/2010/manifest" xmlns:m2="http://schemas.microsoft.com/appx/2013/manifest">
-  <Identity Name="988185db-27ac-4274-95bc-569d45533110" Publisher="CN=Admin" Version="1.6.0.0" />
+  <Identity Name="988185db-27ac-4274-95bc-569d45533110" Publisher="CN=Admin" Version="1.7.0.0" />
   <Properties>
     <DisplayName>Casara.Windows</DisplayName>
     <PublisherDisplayName>Admin</PublisherDisplayName>

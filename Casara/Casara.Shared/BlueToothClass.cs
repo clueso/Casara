@@ -53,6 +53,17 @@ namespace Casara
             BTState = BluetoothConnectionState.Disconnected;
         }
 
+        public bool IsBTConnected
+        {
+            get
+            {
+                if (BTState == BluetoothConnectionState.Connected)
+                    return true;
+                else
+                    return false;
+            }
+        }
+
         public async Task<DeviceInformationCollection> EnumerateDevices(RfcommServiceId ServiceId)
         {
             this.BTState = BluetoothConnectionState.Enumerating;    //Maybe we don't need this because it is a blocking call...

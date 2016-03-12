@@ -26,6 +26,7 @@ using Windows.Storage;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Networking;
 using Windows.Devices.Enumeration;
+using Windows.System.Display;
 //using Microsoft.Maps.SpatialToolbox.Bing;
 //using Microsoft.Maps.SpatialToolbox.IO;
 //using Microsoft.Maps.SpatialToolbox;
@@ -41,9 +42,9 @@ namespace Casara
 {
     public struct ArduinoDataPoint
     {
+        public Int32 SignalStrength;
         public double Latitude;
         public double Longitude;
-        public Int32 SignalStrength;
         public double Radius;
         public bool Plotted;
     };
@@ -75,20 +76,8 @@ namespace Casara
         private GraphicsLayer DataLayer;
         private StorageFile TilePackageFile;
         private int DefaultRadius;
-        //private ShapeStyle DefaultStyle = new ShapeStyle()
-        //{
-        //    FillColor = StyleColor.FromArgb(150, 0, 0, 255),
-        //    StrokeColor = StyleColor.FromArgb(150, 125, 125, 125),
-        //    StrokeThickness = 1
-        //};
-
-        //private LocalTileSource layerInfo = new LocalTileSource()
-        //{
-        //    ZipTilePath = new Uri("ms-appx:///Assets/HurricaneKatrina.zip"),
-        //    MinZoomLevel = 1,
-        //    MaxZoomLevel = 6,
-        //    Bounds = new LocationRect(new Location(72, -170), new Location(14, -65))
-        //};
+        private DisplayRequest ActiveDisplay;
+        private bool DisplayRequested;
 
         /// <summary>
         /// This can be changed to a strongly typed view model.
@@ -158,7 +147,6 @@ namespace Casara
                        
             try
             {
-                
                 Position = await GPS.GetGPSLocation();
                 LatitudeBox.Text += Position.Coordinate.Point.Position.Latitude.ToString();
                 LongitudeBox.Text += Position.Coordinate.Point.Position.Longitude.ToString();
@@ -167,6 +155,8 @@ namespace Casara
                 MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
                 BTStopButton.IsEnabled = false;
+                BTStartButton.IsEnabled = true;
+                DisplayRequested = false;
                 //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
                 //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
             }
@@ -190,7 +180,13 @@ namespace Casara
         {
             if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
                 GPS.GeoLoc.PositionChanged -= new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
-            //BTClass.DisconnectDevice();
+            if (BTClass.IsBTConnected == true)
+                BTClass.DisconnectDevice();
+            if (ActiveDisplay != null && DisplayRequested == true)
+            {
+                ActiveDisplay.RequestRelease();
+                DisplayRequested = false;
+            }
         }
 
         #region NavigationHelper registration
@@ -441,6 +437,16 @@ namespace Casara
                 return;
             }
 
+            if (ActiveDisplay == null)
+                ActiveDisplay = new DisplayRequest();
+
+            if (ActiveDisplay != null && DisplayRequested == false)
+            {
+                ActiveDisplay.RequestActive();
+                DisplayRequested = true;
+            }
+                
+
             ListenTask = BTClass.ListenForData();
             BTStartButton.IsEnabled = false;
             BTStopButton.IsEnabled = true;
@@ -454,6 +460,12 @@ namespace Casara
             BTClass.DisconnectDevice();
             BTStartButton.IsEnabled = true;
             BTStopButton.IsEnabled = false;
+            if (ActiveDisplay != null && DisplayRequested == true)
+            {
+                ActiveDisplay.RequestRelease();
+                DisplayRequested = false;
+            }
+                
             if (DataFile != null)
                 DataFile = null;
             //DataBuffer += ",-123.17\r\n100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n";
@@ -500,13 +512,21 @@ namespace Casara
             
         }
 
+        void SetDirIndicators(Int32 DirSignalStrength)
+        {
+            if (DirSignalStrength < 512)
+                DirLeftIndicator.Value = 512 - DirSignalStrength;
+            else
+                DirRightIndicator.Value = DirSignalStrength - 512;
+        }
+
         void ParseMessage()
         {
             string TrimmedMessage;
             int SubStringIndex;
             
             SubStringIndex = DataBuffer.LastIndexOf('\n');
-            if(SubStringIndex < 0)
+            if (SubStringIndex < 0)
                 TrimmedMessage = DataBuffer;
             else
                 TrimmedMessage = DataBuffer.Substring(0, SubStringIndex);
@@ -517,37 +537,32 @@ namespace Casara
 
             foreach(string Str in DataPointList)
             {
-                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 2)
+                //No. of separators = No. of variables - 1
+                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
                 {
                     string[] SignalList = Str.Split(',');
 
-                    if (MeasuredSignalStrength != null && !SignalList[0].Equals("") && !SignalList[1].Equals("") && !SignalList[2].Equals(""))
+                    if (MeasuredSignalStrength != null && !SignalList[1].Equals("") && !SignalList[5].Equals("") && !SignalList[6].Equals(""))
                     {
+                        //Point Data
+                        // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Mean direction, 5 & 6 - GPS
                         MeasuredSignalStrength.Add(new ArduinoDataPoint
                         {
-                            SignalStrength = Convert.ToInt32(SignalList[0]),
-                            Latitude = Convert.ToDouble(SignalList[1]),
-                            Longitude = Convert.ToDouble(SignalList[2]),
+                            SignalStrength = Convert.ToInt32(SignalList[1]),
+                            Latitude = Convert.ToDouble(SignalList[5]),
+                            Longitude = Convert.ToDouble(SignalList[6]),
                             Radius = DefaultRadius,
                             Plotted = false
                         });
 
-                        //SubStringLength = Str.Length;
-                        //SubStringIndex = DataBuffer.IndexOf(Str);
+                        //Direction Indication
+                        if (!SignalList[4].Equals(""))
+                            SetDirIndicators(Convert.ToInt32(SignalList[4]));
 
-                        //if (DataBuffer[SubStringIndex + SubStringLength + 1] == '\r')
-                        //    SubStringLength = SubStringLength + 1;
-                        //if (DataBuffer[SubStringIndex + SubStringLength + 1] == '\n')
-                        //    SubStringLength = SubStringLength + 1;
+                        //Battery Status
+                        if (!SignalList[0].Equals(""))
+                            BatteryStrengthTextBox.Text = SignalList[0].ToString();
 
-                        //if(DataBuffer.Contains(Str+"\r\n"))
-                        //    ProcessedString = Str + "\r\n";
-                        //else if(DataBuffer.Contains(Str+"\r"))
-                        //    ProcessedString = Str + "\r";
-                        //else
-                        //    ProcessedString = Str;
-
-                        //DataBuffer = DataBuffer.Remove(SubStringIndex, SubStringLength);
                     }                                                      
                 }                
             }
@@ -560,7 +575,6 @@ namespace Casara
         private async Task PlotList()
         {
             ArduinoDataPoint Point;
-            int Index;
             int i;
                         
             for (i = 0; i < MeasuredSignalStrength.Count; i++)

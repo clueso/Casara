@@ -87,6 +87,7 @@
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -104,11 +105,20 @@
                 <TextBox x:Name="LongitudeBox" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Longitude = " Width="200" Margin="0,2,0,2"/>
                 <TextBox x:Name="AccuracyBox" Grid.Row="6" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Accuracy =" Width="200" Margin="0,2,0,2"/>
                 <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,2"/>
-                <TextBox x:Name="SpotSizeTextBox" Grid.Row="8" Grid.Column="0" TextWrapping="Wrap" HorizontalAlignment="Left" Width="100" Margin="0,2,0,2"/>
-                <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="8" Grid.Column="1" Width="100" Click="MainPage_onSpotSizeClick" />
-                <TextBox x:Name="StatusTextBox" Grid.Row="9" Grid.ColumnSpan="2" TextWrapping="Wrap" Height="350" Width="200" Margin="0,5,0,0" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
+                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="8" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,2,0,2"/>
+                <TextBox x:Name="SpotSizeTextBox" Grid.Row="9" Grid.Column="0" TextWrapping="Wrap" HorizontalAlignment="Left" Width="100" Margin="0,2,0,2"/>
+                <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="9" Grid.Column="1" Width="100" Click="MainPage_onSpotSizeClick" />
+                <TextBox x:Name="StatusTextBox" Grid.Row="10" Grid.ColumnSpan="2" TextWrapping="Wrap" Height="350" Width="200" Margin="0,6,0,-1" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
             </Grid>
-            <Image x:Name="ColourBarImgBox" HorizontalAlignment="Right" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Source="Assets/FullColourBar.png" Stretch="None" />
+            <Image x:Name="ColourBarImgBox" HorizontalAlignment="Right" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Source="Assets/FullColourBar.png" Stretch="None" Margin="0,9,0,15" Grid.RowSpan="2" />
+            <StackPanel Margin="28,6,514,19" Orientation="Horizontal" Grid.Row="3">
+                <ProgressBar x:Name="DirLeftIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" RenderTransformOrigin="0.5,0.5" Maximum="512" Foreground="#FFB42517" Value="200" Margin="0,0,0,-20">
+                    <ProgressBar.RenderTransform>
+                        <CompositeTransform Rotation="180"/>
+                    </ProgressBar.RenderTransform>
+                </ProgressBar>
+                <ProgressBar x:Name="DirRightIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" Maximum="512" Value="300" Margin="0,0,0,-20"/>
+            </StackPanel>
         </Grid>
 
     </Grid>

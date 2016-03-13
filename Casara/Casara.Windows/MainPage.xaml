@@ -98,26 +98,26 @@
                 <Button x:Name="StopButton" Content="GPS Stop" Grid.Row="2" Grid.Column="0"  Click="StopButton_Click" IsEnabled="False" Width="100"/>
                 <Button x:Name="BTStartButton" Content="BT Start" Grid.Row="0" Grid.Column="1" Click="BTStarted_Clicked" Width="100"/>
                 <Button x:Name="BTStopButton" Content="BT Stop" Grid.Row="1" Grid.Column="1" Click="BTStop_Clicked" Width="100"/>
-                <Button x:Name="DownloadButton" Content="Download" Grid.Row="2" Grid.Column="1" Click="onDownloadClick" IsEnabled="False" Width="100" />
+                <Button x:Name="DownloadButton" Content="Download" Grid.Row="2" Grid.Column="1" Click="onDownloadClick" Width="100" IsEnabled="False" />
                 <RadioButton x:Name="OnlineRadioButton" Content="Online" Grid.Row="3" Grid.Column="0" Checked="OnlineRadioButtonChecked" IsChecked="True" IsEnabled="False"/>
                 <RadioButton x:Name="LocalRadioButton" Content="Local" Grid.Row="3" Grid.Column="1" Checked="LocalRadioButtonChecked" IsEnabled="False"/>
-                <TextBox x:Name="LatitudeBox" Grid.Row="4" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Latitude = " Width="200" Margin="0,2,0,2"/>
-                <TextBox x:Name="LongitudeBox" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Longitude = " Width="200" Margin="0,2,0,2"/>
-                <TextBox x:Name="AccuracyBox" Grid.Row="6" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Accuracy =" Width="200" Margin="0,2,0,2"/>
-                <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,2"/>
-                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="8" Grid.ColumnSpan="2" TextWrapping="Wrap" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,2,0,2"/>
-                <TextBox x:Name="SpotSizeTextBox" Grid.Row="9" Grid.Column="0" TextWrapping="Wrap" HorizontalAlignment="Left" Width="100" Margin="0,2,0,2"/>
+                <TextBox x:Name="LatitudeBox" Grid.Row="4" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Latitude = " Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
+                <TextBox x:Name="LongitudeBox" Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Longitude = " Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
+                <TextBox x:Name="AccuracyBox" Grid.Row="6" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Accuracy =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
+                <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
+                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="8" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
+                <TextBox x:Name="SpotSizeTextBox" Grid.Row="9" Grid.Column="0" HorizontalAlignment="Left" Width="100" Margin="0,2,0,2" IsReadOnly="True"/>
                 <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="9" Grid.Column="1" Width="100" Click="MainPage_onSpotSizeClick" />
                 <TextBox x:Name="StatusTextBox" Grid.Row="10" Grid.ColumnSpan="2" TextWrapping="Wrap" Height="350" Width="200" Margin="0,6,0,-1" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
             </Grid>
             <Image x:Name="ColourBarImgBox" HorizontalAlignment="Right" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Source="Assets/FullColourBar.png" Stretch="None" Margin="0,9,0,15" Grid.RowSpan="2" />
             <StackPanel Margin="28,6,514,19" Orientation="Horizontal" Grid.Row="3">
-                <ProgressBar x:Name="DirLeftIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" RenderTransformOrigin="0.5,0.5" Maximum="512" Foreground="#FFB42517" Value="200" Margin="0,0,0,-20">
+                <ProgressBar x:Name="DirLeftIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" RenderTransformOrigin="0.5,0.5" Maximum="512" Foreground="#FFB42517" Margin="0,0,0,-20">
                     <ProgressBar.RenderTransform>
                         <CompositeTransform Rotation="180"/>
                     </ProgressBar.RenderTransform>
                 </ProgressBar>
-                <ProgressBar x:Name="DirRightIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" Maximum="512" Value="300" Margin="0,0,0,-20"/>
+                <ProgressBar x:Name="DirRightIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" Maximum="512" Margin="0,0,0,-20" LargeChange="128"/>
             </StackPanel>
         </Grid>
 

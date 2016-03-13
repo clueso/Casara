@@ -386,7 +386,8 @@ namespace Casara
         }
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
-            ClearPoints(true);          
+            ClearPoints(true);
+            StatusTextBox.Text = "";
         }
 
         private string CreateFileName()
@@ -508,16 +509,21 @@ namespace Casara
             catch(Exception)
             {
                 Debug.WriteLine("Exception in BTClass_OnDataReceived");
-            }
-            
+            }   
         }
 
         void SetDirIndicators(Int32 DirSignalStrength)
         {
             if (DirSignalStrength < 512)
+            {
                 DirLeftIndicator.Value = 512 - DirSignalStrength;
+                DirRightIndicator.Value = 0;
+            }
             else
+            {
+                DirLeftIndicator.Value = 0;
                 DirRightIndicator.Value = DirSignalStrength - 512;
+            }
         }
 
         void ParseMessage()
@@ -538,7 +544,7 @@ namespace Casara
             foreach(string Str in DataPointList)
             {
                 //No. of separators = No. of variables - 1
-                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
+                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 6)
                 {
                     string[] SignalList = Str.Split(',');
 
@@ -557,11 +563,11 @@ namespace Casara
 
                         //Direction Indication
                         if (!SignalList[4].Equals(""))
-                            SetDirIndicators(Convert.ToInt32(SignalList[4]));
+                            SetDirIndicators(Convert.ToInt32(SignalList[4]));                            
 
                         //Battery Status
-                        if (!SignalList[0].Equals(""))
-                            BatteryStrengthTextBox.Text = SignalList[0].ToString();
+                        if (!SignalList[0].Equals(""));
+                            BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
 
                     }                                                      
                 }                
@@ -642,6 +648,7 @@ namespace Casara
             }
         }
 
+        //Download button is disabled because terrain map does not allow exporting tile caches.
         private void downloadProgress_ProgressChanged(Object sender, ExportTileCacheDownloadProgress p)
         {
             double DownloadCompletePct;

@@ -561,9 +561,13 @@ namespace Casara
                             Plotted = false
                         });
 
+                        //LH16 Signal strength
+                        if (!SignalList[3].Equals(""))
+                            BatteryStrengthTextBox.Text = "LH16 signal = " + SignalList[3].ToString();
+
                         //Direction Indication
                         if (!SignalList[4].Equals(""))
-                            SetDirIndicators(Convert.ToInt32(SignalList[4]));                            
+                            SetDirIndicators(Convert.ToInt32(SignalList[4]));
 
                         //Battery Status
                         if (!SignalList[0].Equals(""));

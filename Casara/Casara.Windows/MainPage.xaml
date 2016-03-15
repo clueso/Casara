@@ -63,7 +63,6 @@
 
         <Grid>
             <Grid.ColumnDefinitions>
-
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="auto" />
                 <ColumnDefinition Width="24" />
@@ -88,6 +87,8 @@
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
+                    <RowDefinition Height="29.667" />
+                    <RowDefinition Height="325.333"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -104,11 +105,12 @@
                 <TextBox x:Name="LatitudeBox" Grid.Row="4" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Latitude = " Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
                 <TextBox x:Name="LongitudeBox" Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Longitude = " Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
                 <TextBox x:Name="AccuracyBox" Grid.Row="6" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Accuracy =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
-                <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
-                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="8" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
-                <TextBox x:Name="SpotSizeTextBox" Grid.Row="9" Grid.Column="0" HorizontalAlignment="Left" Width="100" Margin="0,2,0,2" IsReadOnly="True"/>
-                <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="9" Grid.Column="1" Width="100" Click="MainPage_onSpotSizeClick" />
-                <TextBox x:Name="StatusTextBox" Grid.Row="10" Grid.ColumnSpan="2" TextWrapping="Wrap" Height="350" Width="200" Margin="0,6,0,-1" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
+                <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,38" IsReadOnly="True" Height="32"/>
+                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,37,0,3" IsReadOnly="True"/>
+                <TextBox x:Name="LH16SignalStrength" HorizontalAlignment="Left" Grid.Row="9" Grid.RowSpan="3" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="200" Text="LH16 signal = "/>
+                <TextBox x:Name="SpotSizeTextBox" Grid.Row="12" Grid.Column="1" HorizontalAlignment="Left" Width="100" Margin="0,3,0,290.333" IsReadOnly="True" Height="32"/>
+                <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="12" Width="100" Click="MainPage_onSpotSizeClick" Margin="0,2,0,289.333" />
+                <TextBox x:Name="StatusTextBox" Grid.Row="12" Grid.ColumnSpan="2" TextWrapping="Wrap" Width="200" Margin="0,40,0,-30.667" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Visible"/>
             </Grid>
             <Image x:Name="ColourBarImgBox" HorizontalAlignment="Right" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Source="Assets/FullColourBar.png" Stretch="None" Margin="0,9,0,15" Grid.RowSpan="2" />
             <StackPanel Margin="28,6,514,19" Orientation="Horizontal" Grid.Row="3">

@@ -554,26 +554,25 @@ namespace Casara
                         // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Mean direction, 5 & 6 - GPS
                         MeasuredSignalStrength.Add(new ArduinoDataPoint
                         {
-                            SignalStrength = Convert.ToInt32(SignalList[1]),
+                            SignalStrength = Convert.ToInt32(SignalList[2]),
                             Latitude = Convert.ToDouble(SignalList[5]),
                             Longitude = Convert.ToDouble(SignalList[6]),
                             Radius = DefaultRadius,
                             Plotted = false
                         });
+                    }
 
-                        //LH16 Signal strength
-                        if (!SignalList[3].Equals(""))
-                            BatteryStrengthTextBox.Text = "LH16 signal = " + SignalList[3].ToString();
+                    //LH16 Signal strength
+                    if (!SignalList[3].Equals(""))
+                        BatteryStrengthTextBox.Text = "LH16 signal = " + SignalList[2].ToString();
 
-                        //Direction Indication
-                        if (!SignalList[4].Equals(""))
-                            SetDirIndicators(Convert.ToInt32(SignalList[4]));
+                    //Direction Indication
+                    if (!SignalList[4].Equals(""))
+                        SetDirIndicators(Convert.ToInt32(SignalList[4]));
 
-                        //Battery Status
-                        if (!SignalList[0].Equals(""));
-                            BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
-
-                    }                                                      
+                    //Battery Status
+                    if (!SignalList[0].Equals(""));
+                        BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();                                                      
                 }                
             }
 

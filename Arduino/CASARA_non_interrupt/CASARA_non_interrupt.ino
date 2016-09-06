@@ -48,22 +48,6 @@ void setup(){
   Serial.begin(115200);
   GPS.begin(9600);
     
-//  DIDR0 |= _BV(ADC5D);
-//  DIDR0 |= _BV(ADC4D);
-//  DIDR0 |= _BV(ADC3D);
-//  DIDR0 |= _BV(ADC2D);
-//  DIDR0 |= _BV(ADC1D);
-//  DIDR0 |= _BV(ADC0D);
-  
-  // Set up ADC
-//  ADMUX &= B11011111;                  // Clear ADLAR in ADMUX (0x7C) to right-adjust the result
-//  ADMUX |= B01000000;                  // Set REFS1..0 in ADMUX (0x7C) to change reference voltage
-//  ADMUX &= B11110000;                  // Clear MUX3..0 in ADMUX (0x7C) in preparation for setting the analog input
-//  ADCSRA |= B10000000;                 // Set ADEN in ADCSRA (0x7A) to enable the ADC (12 ADC clocks to execute)
-//  ADCSRA |= B00100000;                 // Set ADATE in ADCSRA (0x7A) to enable auto-triggering
-//  ADCSRB &= B11111000;                 // Clear ADTS2..0 in ADCSRB (0x7B) to set trigger mode to free running
-//  ADCSRA |= B00000111;                 // Set the Prescaler to 128 (16000KHz/128 = 125KHz)
-//  ADCSRA |= B00001000;                 // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt
   readFlag = 0;                        // Set flag for the first ADC
   maximum = 0;
   
@@ -93,7 +77,6 @@ void setup(){
 // Processor loop
 void loop(){
   int i;
-  //int SampledLine;
   // If the ADC has read the audio signal strength
   // update the LEDs.
   
@@ -126,26 +109,6 @@ void loop(){
 
   clipping();                        // Measure maximum audio signal and display on LEDs
         
-//  if (readFlag == 1) {
-//    if (i == 0)
-//      SampledLine = 3;
-//    else 
-//      SampledLine = i-1;
-      
-//    Sums[SampledLine] += myvar[SampledLine];
-
-//    if (SampledLine == 1) {
-//      if (myvar[1] != 0)
-//        Counts[1] += 1;
-      
-    
-//    }
-//    else
-//      Counts[SampledLine] += 1;
-      
-//    readFlag = 0;                      // Reset flag
-//  }
-
   if (GPS.newNMEAreceived()) {         // If a sentence is received, we can check the checksum, parse it...
     if (!GPS.parse(GPS.lastNMEA()))    // This also sets the newNMEAreceived() flag to false
       return;      // We can fail to parse a sentence in which case we should just wait for another
@@ -164,16 +127,7 @@ void clipping () {
   }
 }
 
-// Interrupt Service Routine for the ADC completion
-//ISR(ADC_vect){
-//  (myvar[i]) = ADCL | (ADCH << 8);         // Must read low first
-//  if (++i >= ADC_CHANNELS)
-//    i=0; 
-//  readFlag = 1;                            // Done reading
-// ADMUX = (0 << ADLAR) | (1 << REFS0) | i; // Select ADC Channel
-//  ADCSRA |=B01000000;                      // Set ADSC in ADCSRA (0x7A) to start the ADC conversion
-//}
-
+// 0 - battery, 1 - audio, 2 - strength, 3 - direction
 // Interrupt Service Routine for Timer1
 ISR(TIMER1_COMPA_vect){  
   Serial.print(myvar[0]);
@@ -220,7 +174,3 @@ void useInterrupt(boolean v) {
     usingInterrupt = false;
   }
 }
-
-// 1. Not sure why myvar[0] = A3, myvar[1] = A0, myvar[2] = A1, myvar[3] = A2
-// 2. Timer1 set for 2Hz, but not observing that frequency in serial data output
-// 3. Should change maximum to average and smooth out signal

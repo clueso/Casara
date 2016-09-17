@@ -119,27 +119,31 @@ void loop(){
 // Find maximum audio signal and display on LEDs
 void clipping () {
   int ledLevel = map(maximum, 0, 1023, 0, LED_COUNT);
-  for (int thisLed = 0; thisLed < LED_COUNT; thisLed++) {
-    if (thisLed < ledLevel)
-      digitalWrite(ledPins[thisLed], HIGH);
-    else
-      digitalWrite(ledPins[thisLed], LOW);
-  }
+  
+  for (int thisLed = 0; thisLed < ledLevel; thisLed++)
+    digitalWrite(ledPins[thisLed], HIGH);
 }
 
 // 0 - battery, 1 - audio, 2 - strength, 3 - direction
 // Interrupt Service Routine for Timer1
-ISR(TIMER1_COMPA_vect){  
+ISR(TIMER1_COMPA_vect){
+  //Instantaneous value of Battery
   Serial.print(myvar[0]);
   Serial.print(",");
+  //Average value of Audio
   Serial.print(Sums[1]/Counts[1]);
   Serial.print(",");
-  Serial.print(maximum);
-  Serial.print(",");
+  //Maximum Audio value
+  //Serial.print(maximum);
+  //Serial.print(",");
+  //Average value strength
   //Serial.print(Sums[2]/Counts[2]);
+  //Instantaneous value of strength reading
   Serial.print(myvar[2]);
   Serial.print(",");
-//  Serial.print(Sums[3]/Counts[3]);
+  //Average value of direction
+  //Serial.print(Sums[3]/Counts[3]);
+  //Instantaneous value of direction
   Serial.print(myvar[3]);
   
   if (GPS.fix && gps_sentence_received) {

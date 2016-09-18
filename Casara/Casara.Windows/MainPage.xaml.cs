@@ -49,6 +49,7 @@ namespace Casara
         public bool Plotted;
     };
 
+    public delegate void UIUpdateDelegate(object o);
     /// <summary>
     /// A basic page that provides characteristics common to most applications.
     /// </summary>
@@ -66,6 +67,7 @@ namespace Casara
         private BlueToothClass BTClass;
         private Task ListenTask;
         private List<ArduinoDataPoint> MeasuredSignalStrength;
+        private List<ArduinoDataPoint> ParsedDataPoints;
         private string DataBuffer;
         private StorageFolder DataFolder;
         private StorageFile DataFile;
@@ -78,6 +80,7 @@ namespace Casara
         private int DefaultRadius;
         private DisplayRequest ActiveDisplay;
         private bool DisplayRequested;
+        private readonly SynchronizationContext synchronizationContext;
 
         /// <summary>
         /// This can be changed to a strongly typed view model.
@@ -119,7 +122,7 @@ namespace Casara
             LocalMapBaseLayer = null;
             DataLayer = null;
             TilePackageFile = null;
-            DefaultRadius = 20;
+            DefaultRadius = 200;
             SpotSizeTextBox.Text = DefaultRadius.ToString();
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
@@ -127,6 +130,8 @@ namespace Casara
             //auto services = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(
                 //RfcommServiceId.ObexObjectPush));
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
+            ParsedDataPoints = new List<ArduinoDataPoint>();
+            synchronizationContext = SynchronizationContext.Current;
         }
 
         /// <summary>
@@ -292,20 +297,20 @@ namespace Casara
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
+                try
                 {
-                    GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
-                }
+                    if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
+                    {
+                        GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
+                    }
 
-                StayTimer.Reset();
-                StayTimer.Start();
-            }
-            catch (Exception)
-            {
-                StatusTextBox.Text += "Error in StartButton_Click!\n";
-            }            
+                    StayTimer.Reset();
+                    StayTimer.Start();
+                }
+                catch (Exception)
+                {
+                    StatusTextBox.Text += "Error in StartButton_Click!\n";
+                }            
         }
 
         async private void GPSPositionChanged(Geolocator sender, PositionChangedEventArgs e)
@@ -476,13 +481,11 @@ namespace Casara
 
         public void BTClass_OnExceptionOccured(object sender, Exception ex)
         {
-
+            Debug.WriteLine("Something wrong");
         }
 
         public async void BTClass_OnDataReceived(object sender, string message)
         {
-            Debug.WriteLine("New Message:" + message);
-
             try
             {
                 if (DataBuffer != null)
@@ -490,7 +493,7 @@ namespace Casara
                 else
                     DataBuffer = message;
 
-                ParseMessage();
+                await Task.Run(() => ParseMessage());
                 await PlotList();
 
                 try
@@ -499,16 +502,16 @@ namespace Casara
                     LongitudeBox.Text = "Longitude = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].Longitude.ToString();
                     SignalStrengthTextBox.Text = "Signal = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].SignalStrength.ToString();
                 }
-                catch(Exception)
+                catch(Exception e)
                 {
-                    Debug.WriteLine("Exception in BTClass_OnDataReceived:setting text boxes");
+                    Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived:setting text boxes");
                 }
                 
                 //MeasuredSignalStrength.Clear();                
             }
-            catch(Exception)
+            catch(Exception e)
             {
-                Debug.WriteLine("Exception in BTClass_OnDataReceived");
+                Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived");
             }   
         }
 
@@ -526,11 +529,35 @@ namespace Casara
             }
         }
 
-        void ParseMessage()
+        private void UpdateUI(object o)
+        {
+            string[] SignalList = (string[])o;
+
+            //Audio strength
+            if (!SignalList[1].Equals(""))
+                SignalStrengthTextBox.Text = "Audio signal = " + SignalList[1].ToString();
+
+            //LH16 Signal strength
+            if (!SignalList[2].Equals(""))
+                LH16SignalStrength.Text = "LH16 signal = " + SignalList[2].ToString();
+
+            //Direction Indication
+            if (!SignalList[3].Equals(""))
+                SetDirIndicators(Convert.ToInt32(SignalList[3]));
+
+            //Battery Status
+            if (!SignalList[0].Equals(""))
+                BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
+        }
+
+        private void ParseMessage()
         {
             string TrimmedMessage;
             int SubStringIndex;
-            
+            char[] separators = { '\r', '\n' };
+            UIUpdateDelegate UIUpdatefn = new UIUpdateDelegate(UpdateUI);
+
+            Debug.WriteLine("DataBuffer:" + DataBuffer);
             SubStringIndex = DataBuffer.LastIndexOf('\n');
             if (SubStringIndex < 0)
                 TrimmedMessage = DataBuffer;
@@ -539,46 +566,39 @@ namespace Casara
 
             DataBuffer = DataBuffer.Remove(0, TrimmedMessage.Length - 1);
 
-            string[] DataPointList = TrimmedMessage.Split('\r', '\n');
-
+            string[] DataPointList = TrimmedMessage.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            Debug.WriteLine("TrimmedMessage:" + TrimmedMessage);
             foreach(string Str in DataPointList)
             {
+                Debug.WriteLine("Str:" + Str);
+                
                 //No. of separators = No. of variables - 1
-                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 6)
+                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
                 {
                     string[] SignalList = Str.Split(',');
-
-                    if (MeasuredSignalStrength != null && !SignalList[1].Equals("") && !SignalList[5].Equals("") && !SignalList[6].Equals(""))
+                    
+                    if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
                     {
                         //Point Data
-                        // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Mean direction, 5 & 6 - GPS
-                        MeasuredSignalStrength.Add(new ArduinoDataPoint
+                        // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Direction, 5 & 6 - GPS
+                        // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
+                        ParsedDataPoints.Add(new ArduinoDataPoint
                         {
                             SignalStrength = Convert.ToInt32(SignalList[2]),
-                            Latitude = Convert.ToDouble(SignalList[5]),
-                            Longitude = Convert.ToDouble(SignalList[6]),
+                            Latitude = Convert.ToDouble(SignalList[4]),
+                            Longitude = Convert.ToDouble(SignalList[5]),
                             Radius = DefaultRadius,
                             Plotted = false
                         });
+
+                        synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
                     }
-
-                    //LH16 Signal strength
-                    if (!SignalList[3].Equals(""))
-                        BatteryStrengthTextBox.Text = "LH16 signal = " + SignalList[2].ToString();
-
-                    //Direction Indication
-                    if (!SignalList[4].Equals(""))
-                        SetDirIndicators(Convert.ToInt32(SignalList[4]));
-
-                    //Battery Status
-                    if (!SignalList[0].Equals(""));
-                        BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();                                                      
                 }                
             }
 
             //if(DataBuffer.Contains("\n"))
             //    DataBuffer = DataBuffer.Remove(0, DataBuffer.LastIndexOf('\n') + 1);
-            StatusTextBox.Text += "Done Parsing: " + MeasuredSignalStrength.Count.ToString() + " Points.\n";
+            //StatusTextBox.Text += "Done Parsing: " + ParsedDataPoints.Count.ToString() + " Points.\n";
         }
 
         private async Task PlotList()
@@ -586,9 +606,9 @@ namespace Casara
             ArduinoDataPoint Point;
             int i;
                         
-            for (i = 0; i < MeasuredSignalStrength.Count; i++)
+            for (i = 0; i < ParsedDataPoints.Count; i++)
             {
-                Point = MeasuredSignalStrength[i];
+                Point = ParsedDataPoints[i];
 
                 if (Point.SignalStrength > MaxIntensity)
                 {
@@ -607,13 +627,13 @@ namespace Casara
                 {
                     DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
                     Point.Plotted = true;
-                    MeasuredSignalStrength[i] = Point;
+                    MeasuredSignalStrength.Add(Point);
                     if (DataFile != null)
                         await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
                                 + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
                 }
             }
-
+            ParsedDataPoints.Clear();
             StatusTextBox.Text += "Finished plotting\n";
         }
 

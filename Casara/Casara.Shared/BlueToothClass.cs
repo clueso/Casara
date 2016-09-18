@@ -57,10 +57,7 @@ namespace Casara
         {
             get
             {
-                if (BTState == BluetoothConnectionState.Connected)
-                    return true;
-                else
-                    return false;
+                return (BTState == BluetoothConnectionState.Connected);
             }
         }
 
@@ -81,7 +78,8 @@ namespace Casara
                 {
                     // Create a socket and connect to the target 
                     BTStreamSocket = new StreamSocket();
-                    await BTStreamSocket.ConnectAsync(BTService.ConnectionHostName, BTService.ConnectionServiceName, SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
+                    await BTStreamSocket.ConnectAsync(BTService.ConnectionHostName, BTService.ConnectionServiceName,
+                                                      SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
                     BTStreamSocketWriter = new DataWriter(BTStreamSocket.OutputStream);
                     BTStreamSocketReader = new DataReader(BTStreamSocket.InputStream);
                     BTStreamSocketReader.ByteOrder = ByteOrder.LittleEndian;

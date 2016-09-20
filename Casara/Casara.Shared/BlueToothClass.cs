@@ -105,28 +105,28 @@ namespace Casara
 
         public async Task ListenForData()
         {
+            uint MessageLength;
+            uint BytesReturned;
+
             while (BTStreamSocketReader != null)
             {
                 try
                 {
                     // Read first byte (length of the subsequent message, 255 or less). 
-                    uint sizeFieldCount = await BTStreamSocketReader.LoadAsync(1);
-                    if (sizeFieldCount != 1)
-                    {
+                    BytesReturned = await BTStreamSocketReader.LoadAsync(1);
+                    if (BytesReturned != 1)
                         // The underlying socket was closed before we were able to read the whole data. 
                         return;
-                    }
 
                     // Read the message. 
-                    uint messageLength = BTStreamSocketReader.ReadByte();
-                    uint actualMessageLength = await BTStreamSocketReader.LoadAsync(messageLength);
-                    if (messageLength != actualMessageLength)
-                    {
+                    BytesReturned = BTStreamSocketReader.ReadByte();
+                    MessageLength = await BTStreamSocketReader.LoadAsync(BytesReturned);
+                    if (MessageLength != BytesReturned)
                         // The underlying socket was closed before we were able to read the whole data. 
                         return;
-                    }
+
                     // Read the message and process it.
-                    string message = BTStreamSocketReader.ReadString(actualMessageLength);
+                    string message = BTStreamSocketReader.ReadString(MessageLength);
                     if (display)
                         OnMessageReceivedEvent(this, message);
                     Debug.WriteLine("Time: " + watch.ElapsedMilliseconds.ToString() + " Message: " + message);
@@ -142,12 +142,7 @@ namespace Casara
         public void DisconnectDevice()
         {
             if (BTStreamSocketReader != null)
-            {
-                //BTStreamSocketReader.DetachStream();
-                //BTStreamSocketReader.Dispose();
                 BTStreamSocketReader = null;
-            }
-                
 
             if (BTStreamSocketWriter != null)
             {

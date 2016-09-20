@@ -81,6 +81,7 @@ namespace Casara
         private DisplayRequest ActiveDisplay;
         private bool DisplayRequested;
         private readonly SynchronizationContext synchronizationContext;
+        private int TotalPlottedPoints;
 
         /// <summary>
         /// This can be changed to a strongly typed view model.
@@ -132,6 +133,7 @@ namespace Casara
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
             ParsedDataPoints = new List<ArduinoDataPoint>();
             synchronizationContext = SynchronizationContext.Current;
+            TotalPlottedPoints = 0;
         }
 
         /// <summary>
@@ -164,6 +166,7 @@ namespace Casara
                 DisplayRequested = false;
                 //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
                 //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
+                await ConnectBT();
             }
             catch(Exception)
             {
@@ -407,7 +410,7 @@ namespace Casara
             return FileName;
         }
 
-        private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
+        private async Task ConnectBT()
         {
             bool BTDeviceFound = false;
 
@@ -418,16 +421,16 @@ namespace Casara
                     DataFile = await DataFolder.CreateFileAsync(CreateFileName(), CreationCollisionOption.ReplaceExisting);
                     await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started " + DateTime.Now.ToString() + "\r\n");
                 }
-                catch(Exception)
+                catch (Exception)
                 {
-                    Debug.WriteLine("Error opening file!");
+                    //Debug.WriteLine("Error opening file!");
                 }
             }
 
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
             //Ashwin BT = HC-05
             //Daniel BT = RNBT-6971
-            foreach(DeviceInformation DevInfo in ConnectedDevices)
+            foreach (DeviceInformation DevInfo in ConnectedDevices)
             {
                 if (DevInfo.Name.Equals("HC-05") || DevInfo.Name.Equals("RNBT-6971"))
                 {
@@ -436,8 +439,8 @@ namespace Casara
                     break;
                 }
             }
-            
-            if(!BTDeviceFound)
+
+            if (!BTDeviceFound)
             {
                 StatusTextBox.Text += "No known BT device found...stopping\n";
                 return;
@@ -451,29 +454,39 @@ namespace Casara
                 ActiveDisplay.RequestActive();
                 DisplayRequested = true;
             }
-                
+
 
             ListenTask = BTClass.ListenForData();
-            BTStartButton.IsEnabled = false;
-            BTStopButton.IsEnabled = true;
             //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
             //ParseMessage();
             //PlotList();
         }
 
-        private void BTStop_Clicked(object sender, RoutedEventArgs e)
+        private void BTStarted_Clicked(object sender, RoutedEventArgs e)
         {
-            BTClass.DisconnectDevice();
+            BTClass.display = true;
+            BTStartButton.IsEnabled = false;
+            BTStopButton.IsEnabled = true;
+        }
+
+        private async void BTStop_Clicked(object sender, RoutedEventArgs e)
+        {
+            BTClass.display = false;
             BTStartButton.IsEnabled = true;
             BTStopButton.IsEnabled = false;
-            if (ActiveDisplay != null && DisplayRequested == true)
-            {
-                ActiveDisplay.RequestRelease();
-                DisplayRequested = false;
-            }
+            //await ListenTask;
+
+            //BTClass.DisconnectDevice();
+            //BTStartButton.IsEnabled = true;
+            //BTStopButton.IsEnabled = false;
+            //if (ActiveDisplay != null && DisplayRequested == true)
+            //{
+            //    ActiveDisplay.RequestRelease();
+            //    DisplayRequested = false;
+            //}
                 
-            if (DataFile != null)
-                DataFile = null;
+            //if (DataFile != null)
+            //    DataFile = null;
             //DataBuffer += ",-123.17\r\n100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n";
             //ParseMessage();
             //PlotList();
@@ -481,37 +494,21 @@ namespace Casara
 
         public void BTClass_OnExceptionOccured(object sender, Exception ex)
         {
-            Debug.WriteLine("Something wrong");
+            //Debug.WriteLine("Something wrong");
         }
 
         public async void BTClass_OnDataReceived(object sender, string message)
         {
             try
             {
-                if (DataBuffer != null)
-                    DataBuffer += message;
-                else
-                    DataBuffer = message;
-
-                await Task.Run(() => ParseMessage());
+                await Task.Run(() => ParseMessage(message));
                 await PlotList();
-
-                try
-                {
-                    LatitudeBox.Text = "Latitude = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].Latitude.ToString();
-                    LongitudeBox.Text = "Longitude = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].Longitude.ToString();
-                    SignalStrengthTextBox.Text = "Signal = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].SignalStrength.ToString();
-                }
-                catch(Exception e)
-                {
-                    Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived:setting text boxes");
-                }
                 
                 //MeasuredSignalStrength.Clear();                
             }
             catch(Exception e)
             {
-                Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived");
+                //Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived");
             }   
         }
 
@@ -532,6 +529,18 @@ namespace Casara
         private void UpdateUI(object o)
         {
             string[] SignalList = (string[])o;
+            
+            try
+            {
+                ArduinoDataPoint Point = ParsedDataPoints.Last();
+
+                LatitudeBox.Text = "Latitude = " + Point.Latitude.ToString();
+                LongitudeBox.Text = "Longitude = " + Point.Longitude.ToString();
+            }
+            catch (Exception e)
+            {
+                //Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived:setting text boxes");
+            }
 
             //Audio strength
             if (!SignalList[1].Equals(""))
@@ -550,14 +559,20 @@ namespace Casara
                 BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
         }
 
-        private void ParseMessage()
+        private void ParseMessage(string message)
         {
             string TrimmedMessage;
             int SubStringIndex;
             char[] separators = { '\r', '\n' };
             UIUpdateDelegate UIUpdatefn = new UIUpdateDelegate(UpdateUI);
 
-            Debug.WriteLine("DataBuffer:" + DataBuffer);
+            message = message.Trim();
+            if (DataBuffer != null)
+                DataBuffer += message;
+            else
+                DataBuffer = message;
+
+            //Debug.WriteLine("DataBuffer:" + DataBuffer);
             SubStringIndex = DataBuffer.LastIndexOf('\n');
             if (SubStringIndex < 0)
                 TrimmedMessage = DataBuffer;
@@ -567,10 +582,10 @@ namespace Casara
             DataBuffer = DataBuffer.Remove(0, TrimmedMessage.Length - 1);
 
             string[] DataPointList = TrimmedMessage.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-            Debug.WriteLine("TrimmedMessage:" + TrimmedMessage);
+            //Debug.WriteLine("TrimmedMessage:" + TrimmedMessage);
             foreach(string Str in DataPointList)
             {
-                Debug.WriteLine("Str:" + Str);
+                //Debug.WriteLine("Str:" + Str);
                 
                 //No. of separators = No. of variables - 1
                 if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
@@ -590,9 +605,9 @@ namespace Casara
                             Radius = DefaultRadius,
                             Plotted = false
                         });
-
-                        synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
                     }
+
+                    synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
                 }                
             }
 
@@ -633,8 +648,10 @@ namespace Casara
                                 + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
                 }
             }
+            TotalPlottedPoints += ParsedDataPoints.Count;
+            StatusTextBox.Text = "Plotted " + TotalPlottedPoints.ToString() + " Points\n";
             ParsedDataPoints.Clear();
-            StatusTextBox.Text += "Finished plotting\n";
+            
         }
 
         private void creationProgress_ProgressChanged(Object sender, ExportTileCacheJob p)

@@ -7,6 +7,7 @@ using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Networking.Sockets;
 using Windows.Devices.Enumeration;
 using Windows.Storage.Streams;
+using System.Diagnostics;
 
 namespace Casara
 {
@@ -24,10 +25,12 @@ namespace Casara
         private StreamSocket BTStreamSocket;
         private DataReader BTStreamSocketReader;
         private DataWriter BTStreamSocketWriter;
-        private BluetoothConnectionState BTState; 
+        private BluetoothConnectionState BTState;
+        private Stopwatch watch;
 
         public delegate void AddOnExceptionOccuredDelegate(object sender, Exception ex);
         public event AddOnExceptionOccuredDelegate ExceptionOccured;
+        public bool display;
         private void OnExceptionOccuredEvent(object sender, Exception ex)
         {
             if (ExceptionOccured != null)
@@ -51,6 +54,7 @@ namespace Casara
             BTStreamSocketReader = null;
             BTStreamSocketWriter = null;
             BTState = BluetoothConnectionState.Disconnected;
+            display = false;
         }
 
         public bool IsBTConnected
@@ -84,7 +88,10 @@ namespace Casara
                     BTStreamSocketReader = new DataReader(BTStreamSocket.InputStream);
                     BTStreamSocketReader.ByteOrder = ByteOrder.LittleEndian;
                     BTStreamSocketReader.UnicodeEncoding = Windows.Storage.Streams.UnicodeEncoding.Utf8;
+                    
                     this.BTState = BluetoothConnectionState.Connected;
+                    watch = new Stopwatch();
+                    watch.Start();
                 }
                 else
                     OnExceptionOccuredEvent(this, new Exception("Unable to create service.\nMake sure that the 'bluetooth.rfcomm' capability is declared with a function of type 'name:serialPort' in Package.appxmanifest."));
@@ -120,7 +127,9 @@ namespace Casara
                     }
                     // Read the message and process it.
                     string message = BTStreamSocketReader.ReadString(actualMessageLength);
-                    OnMessageReceivedEvent(this, message);
+                    if (display)
+                        OnMessageReceivedEvent(this, message);
+                    Debug.WriteLine("Time: " + watch.ElapsedMilliseconds.ToString() + " Message: " + message);
                 }
                 catch (Exception ex)
                 {

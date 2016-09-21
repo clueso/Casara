@@ -158,7 +158,9 @@ namespace Casara
                 LatitudeBox.Text += Position.Coordinate.Point.Position.Latitude.ToString();
                 LongitudeBox.Text += Position.Coordinate.Point.Position.Longitude.ToString();
 
-                MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
+                MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude,
+                                                                     Position.Coordinate.Point.Position.Latitude,
+                                                                     Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
                 MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
                 BTStopButton.IsEnabled = false;
@@ -168,9 +170,9 @@ namespace Casara
                 //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
                 await ConnectBT();
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                StatusTextBox.Text = "Error in navigationHelper_LoadState!\n";
+                StatusTextBox.Text = "navigationHelper_LoadState exception:" + ex.Message + "\n";
             }
 
             StatusTextBox.Text += "State Loaded...\n";
@@ -184,17 +186,25 @@ namespace Casara
         /// <param name="sender">The source of the event; typically <see cref="NavigationHelper"/></param>
         /// <param name="e">Event data that provides an empty dictionary to be populated with
         /// serializable state.</param>
-        private void navigationHelper_SaveState(object sender, SaveStateEventArgs e)
+        private async void navigationHelper_SaveState(object sender, SaveStateEventArgs e)
         {
             if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
                 GPS.GeoLoc.PositionChanged -= new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
             if (BTClass.IsBTConnected == true)
+            {
+                BTClass.StartDisconnectProcess();
+                await ListenTask;
                 BTClass.DisconnectDevice();
+            }
+                
             if (ActiveDisplay != null && DisplayRequested == true)
             {
                 ActiveDisplay.RequestRelease();
                 DisplayRequested = false;
             }
+
+            if (DataFile != null)
+                DataFile = null;
         }
 
         #region NavigationHelper registration
@@ -290,9 +300,9 @@ namespace Casara
                 if (DataLayer != null)
                     DataLayer.Graphics.Add(Graphic);
             }
-            catch(Exception)
+            catch(Exception e)
             {
-                StatusTextBox.Text += "Map Error\n";
+                Debug.WriteLine("DrawCircle exception:" + e.Message);
             }
 
             StatusTextBox.Text += "DrawCircle done...\n";
@@ -310,9 +320,9 @@ namespace Casara
                     StayTimer.Reset();
                     StayTimer.Start();
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    StatusTextBox.Text += "Error in StartButton_Click!\n";
+                    Debug.WriteLine("StartButton_Click exception:" + ex.Message);
                 }            
         }
 
@@ -333,9 +343,9 @@ namespace Casara
                 }
                 );
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                                
+                Debug.WriteLine("GPSPositionChanged exception:" + ex.Message);
             }
             
         }
@@ -354,7 +364,8 @@ namespace Casara
                 return 0;
         }
 
-        //For 100% opacity, pass a value to 255, for 0% pass a value of 0
+        //For 100% opacity, pass a value of 255, for 0% pass a value of 0
+        //Colour profiles for the RGB components are translations of the G component.
         private Windows.UI.Color CalculateIntensityColour(Int32 Intensity, byte Opacity)
         {
             Windows.UI.Color ColourValue;
@@ -421,15 +432,14 @@ namespace Casara
                     DataFile = await DataFolder.CreateFileAsync(CreateFileName(), CreationCollisionOption.ReplaceExisting);
                     await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started " + DateTime.Now.ToString() + "\r\n");
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    //Debug.WriteLine("Error opening file!");
+                    Debug.WriteLine("ConnectBT: Error opening file!" + ex.Message);
                 }
             }
 
+            //Ashwin BT = HC-05, Daniel BT = RNBT-6971
             DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
-            //Ashwin BT = HC-05
-            //Daniel BT = RNBT-6971
             foreach (DeviceInformation DevInfo in ConnectedDevices)
             {
                 if (DevInfo.Name.Equals("HC-05") || DevInfo.Name.Equals("RNBT-6971"))
@@ -446,6 +456,9 @@ namespace Casara
                 return;
             }
 
+            //Request active display so the device does not hibernate. If we want to allow
+            //hibernation, we'll have to handle disconnecting/reconnecting the BT and handling
+            //the traffic in the interim.
             if (ActiveDisplay == null)
                 ActiveDisplay = new DisplayRequest();
 
@@ -455,46 +468,26 @@ namespace Casara
                 DisplayRequested = true;
             }
 
-
             ListenTask = BTClass.ListenForData();
-            //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
-            //ParseMessage();
-            //PlotList();
         }
 
         private void BTStarted_Clicked(object sender, RoutedEventArgs e)
         {
-            BTClass.display = true;
+            BTClass.StartDataDisplay();
             BTStartButton.IsEnabled = false;
             BTStopButton.IsEnabled = true;
         }
 
-        private async void BTStop_Clicked(object sender, RoutedEventArgs e)
+        private void BTStop_Clicked(object sender, RoutedEventArgs e)
         {
-            BTClass.display = false;
+            BTClass.StopDataDisplay();
             BTStartButton.IsEnabled = true;
             BTStopButton.IsEnabled = false;
-            //await ListenTask;
-
-            //BTClass.DisconnectDevice();
-            //BTStartButton.IsEnabled = true;
-            //BTStopButton.IsEnabled = false;
-            //if (ActiveDisplay != null && DisplayRequested == true)
-            //{
-            //    ActiveDisplay.RequestRelease();
-            //    DisplayRequested = false;
-            //}
-                
-            //if (DataFile != null)
-            //    DataFile = null;
-            //DataBuffer += ",-123.17\r\n100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n";
-            //ParseMessage();
-            //PlotList();
         }
 
         public void BTClass_OnExceptionOccured(object sender, Exception ex)
         {
-            //Debug.WriteLine("Something wrong");
+            Debug.WriteLine("BTClass exception" + ex.Message);
         }
 
         public async void BTClass_OnDataReceived(object sender, string message)
@@ -502,13 +495,11 @@ namespace Casara
             try
             {
                 await Task.Run(() => ParseMessage(message));
-                await PlotList();
-                
-                //MeasuredSignalStrength.Clear();                
+                await PlotList();              
             }
-            catch(Exception e)
+            catch(Exception ex)
             {
-                //Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived");
+                Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived");
             }   
         }
 
@@ -537,9 +528,9 @@ namespace Casara
                 LatitudeBox.Text = "Latitude = " + Point.Latitude.ToString();
                 LongitudeBox.Text = "Longitude = " + Point.Longitude.ToString();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                //Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived:setting text boxes");
+                Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived:setting text boxes");
             }
 
             //Audio strength
@@ -572,7 +563,6 @@ namespace Casara
             else
                 DataBuffer = message;
 
-            //Debug.WriteLine("DataBuffer:" + DataBuffer);
             SubStringIndex = DataBuffer.LastIndexOf('\n');
             if (SubStringIndex < 0)
                 TrimmedMessage = DataBuffer;
@@ -582,11 +572,9 @@ namespace Casara
             DataBuffer = DataBuffer.Remove(0, TrimmedMessage.Length - 1);
 
             string[] DataPointList = TrimmedMessage.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-            //Debug.WriteLine("TrimmedMessage:" + TrimmedMessage);
+            
             foreach(string Str in DataPointList)
             {
-                //Debug.WriteLine("Str:" + Str);
-                
                 //No. of separators = No. of variables - 1
                 if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
                 {
@@ -610,10 +598,6 @@ namespace Casara
                     synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
                 }                
             }
-
-            //if(DataBuffer.Contains("\n"))
-            //    DataBuffer = DataBuffer.Remove(0, DataBuffer.LastIndexOf('\n') + 1);
-            //StatusTextBox.Text += "Done Parsing: " + ParsedDataPoints.Count.ToString() + " Points.\n";
         }
 
         private async Task PlotList()
@@ -651,7 +635,6 @@ namespace Casara
             TotalPlottedPoints += ParsedDataPoints.Count;
             StatusTextBox.Text = "Plotted " + TotalPlottedPoints.ToString() + " Points\n";
             ParsedDataPoints.Clear();
-            
         }
 
         private void creationProgress_ProgressChanged(Object sender, ExportTileCacheJob p)
@@ -861,54 +844,5 @@ namespace Casara
                 StatusTextBox.Text += "Invalid number\n";
             }
         }
-
-        //private void TestSpeed()
-        //{
-        //    int Limit = 20;
-        //    int i;
-        //    Random R = new Random();
-        //    //Image test = (Image)MainMap.Children[0];
-        //    //SolidColorBrush brush = new SolidColorBrush(Windows.UI.Colors.Blue);
-            
-
-        //    for (i = 0; i < Limit; i++)
-        //    {
-        //        Location Loc = new Location(R.NextDouble()*180-90,R.NextDouble()*360-180);
-        //        Image img = new Image();
-        //        img.Source = new BitmapImage(new Uri("ms-appx:///Assets/tweety.jpg"));
-        //        img.Height = 50;
-        //        img.Width = 50;
-        //        //MapLayer.SetPosition((Image)img, Loc);
-        //        //MainMap.Children.Add(img);
-        //        //DrawCircle(49,122,0.25,0x0000ff);//R.NextDouble()*180-90,R.NextDouble()*360-180
-        //        //test.DrawCircle(R.Next(50, 400), R.Next(50, 400), brush);
-        //    }
-        //    StatusTextBox.Text += "Added circles...\n";
-        //}
-
-        //private void MainMap_Viewchanged(object sender, ViewChangedEventArgs e)
-        //{
-            //if (MainMap.Children.Count > 0)
-            //{
-            //    Image test = (Image)MainMap.Children[0];
-
-            //    test.Height = 10 * MainMap.ZoomLevel;
-            //    test.Width = 10 * MainMap.ZoomLevel;
-            //    test.Stretch = Stretch.UniformToFill;
-            //    test.InvalidateArrange();
-            //    MainMap.InvalidateArrange();
-            //    ScrollableImage test = (ScrollableImage)MainMap.Children[0];
-            //    test.SetZoom((float)MainMap.ZoomLevel);
-            //}
-
-        //}
-
-        //private void MainMap_LayerLoaded(object sender, LayerLoadedEventArgs e)
-        //{
-        //    if (e.LoadError == null)
-        //        return;
-
-        //    Debug.WriteLine(string.Format("Error while loading layer : {0} - {1}", e.Layer.ID, e.LoadError.Message));
-        //}
     }
 }

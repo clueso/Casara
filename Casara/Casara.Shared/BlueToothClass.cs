@@ -13,10 +13,11 @@ namespace Casara
 {
     public enum BluetoothConnectionState
     {
-        Disconnected,
-        Connected,
         Enumerating,
-        Connecting
+        Connecting,
+        Connected,
+        Disconnecting,
+        Disconnected
     }
 
     class BlueToothClass
@@ -27,10 +28,11 @@ namespace Casara
         private DataWriter BTStreamSocketWriter;
         private BluetoothConnectionState BTState;
         private Stopwatch watch;
+        private bool display;
 
         public delegate void AddOnExceptionOccuredDelegate(object sender, Exception ex);
         public event AddOnExceptionOccuredDelegate ExceptionOccured;
-        public bool display;
+        
         private void OnExceptionOccuredEvent(object sender, Exception ex)
         {
             if (ExceptionOccured != null)
@@ -54,6 +56,21 @@ namespace Casara
             BTStreamSocketReader = null;
             BTStreamSocketWriter = null;
             BTState = BluetoothConnectionState.Disconnected;
+            display = false;
+        }
+
+        public void StartDisconnectProcess()
+        {
+            BTState = BluetoothConnectionState.Disconnecting;
+        }
+
+        public void StartDataDisplay()
+        {
+            display = true;
+        }
+
+        public void StopDataDisplay()
+        {
             display = false;
         }
 
@@ -108,7 +125,7 @@ namespace Casara
             uint MessageLength;
             uint BytesReturned;
 
-            while (BTStreamSocketReader != null)
+            while (BTStreamSocketReader != null && BTState != BluetoothConnectionState.Disconnecting)
             {
                 try
                 {

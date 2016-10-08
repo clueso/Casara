@@ -27,6 +27,7 @@ volatile unsigned int myvar[ADC_CHANNELS];
 int unsigned Sums[ADC_CHANNELS] = {0};
 int unsigned Counts[ADC_CHANNELS] = {0};
 bool gps_sentence_received;
+bool transmit_ready;
 
 void ZeroSumCount()
 {
@@ -41,6 +42,49 @@ unsigned int set_timer_value(int Hz)
 {
   long divisor = Hz * 1024L;
   return (unsigned int)((16L*pow(10,6))/divisor);
+}
+
+// 0 - battery, 1 - audio, 2 - strength, 3 - direction
+void transmit_data()
+{
+  //Instantaneous value of Battery
+  Serial.print(myvar[0]);
+  Serial.print(",");
+ 
+ //Average value of Audio
+  Serial.print(Sums[1]/Counts[1]);
+  Serial.print(",");
+  //Maximum Audio value
+  //Serial.print(maximum);
+  //Serial.print(",");
+  
+  //Average value strength
+  //Serial.print(Sums[2]/Counts[2]);
+  //Serial.print(",");
+  
+  //Instantaneous value of strength reading
+  Serial.print(myvar[2]);
+  Serial.print(",");
+  //Average value of direction
+  //Serial.print(Sums[3]/Counts[3]);
+  //Serial.print(",");
+  
+  //Instantaneous value of direction
+  Serial.print(myvar[3]);
+  
+  if (GPS.fix && gps_sentence_received) {
+    Serial.print(","); 
+    Serial.print(GPS.latitudeDegrees, 4);
+    Serial.print(","); 
+    Serial.println(GPS.longitudeDegrees, 4);
+    gps_sentence_received = false;
+  }
+  else {
+    Serial.println(",,");
+  }
+  maximum = 0;
+  ZeroSumCount();
+  transmit_ready = false;
 }
 
 // Initialization
@@ -72,6 +116,7 @@ void setup(){
   sei();                               // Enable global interrupts  
   ADCSRA |=B01000000;                  // Set ADSC in ADCSRA (0x7A) to start the ADC conversion
   gps_sentence_received = false;
+  transmit_ready = false;
 }
 
 // Processor loop
@@ -114,6 +159,9 @@ void loop(){
       return;      // We can fail to parse a sentence in which case we should just wait for another
     gps_sentence_received = true;
   }
+  
+  if (transmit_ready)
+    transmit_data();
 }
 
 // Find maximum audio signal and display on LEDs
@@ -124,40 +172,9 @@ void clipping () {
     digitalWrite(ledPins[thisLed], HIGH);
 }
 
-// 0 - battery, 1 - audio, 2 - strength, 3 - direction
 // Interrupt Service Routine for Timer1
 ISR(TIMER1_COMPA_vect){
-  //Instantaneous value of Battery
-  Serial.print(myvar[0]);
-  Serial.print(",");
-  //Average value of Audio
-  Serial.print(Sums[1]/Counts[1]);
-  Serial.print(",");
-  //Maximum Audio value
-  //Serial.print(maximum);
-  //Serial.print(",");
-  //Average value strength
-  //Serial.print(Sums[2]/Counts[2]);
-  //Instantaneous value of strength reading
-  Serial.print(myvar[2]);
-  Serial.print(",");
-  //Average value of direction
-  //Serial.print(Sums[3]/Counts[3]);
-  //Instantaneous value of direction
-  Serial.print(myvar[3]);
-  
-  if (GPS.fix && gps_sentence_received) {
-    Serial.print(","); 
-    Serial.print(GPS.latitudeDegrees, 4);
-    Serial.print(","); 
-    Serial.println(GPS.longitudeDegrees, 4);
-    gps_sentence_received = false;
-  }
-  else {
-    Serial.println(",,");
-  }
-  maximum = 0;
-  ZeroSumCount();
+  transmit_ready = true;
 }
 
 // Interrupt is called once a millisecond, looks for any new GPS data, and stores it

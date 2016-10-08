@@ -21,7 +21,7 @@ volatile int readFlag;                // High when a value is ready to be read
 const int ADC_CHANNELS = 4;           // Set how many analogue inputs to read, starting from A0
 int maximum;                          // Audio strength value after ADC
 
-// Create anarray to store the results of the ADC conversions
+// Create an array to store the results of the ADC conversions
 // 0 - battery, 1 - audio, 2 - strength, 3 - direction
 volatile unsigned int myvar[ADC_CHANNELS];
 int unsigned Sums[ADC_CHANNELS] = {0};

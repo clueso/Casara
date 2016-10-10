@@ -107,7 +107,7 @@
                 <TextBox x:Name="AccuracyBox" Grid.Row="6" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Accuracy =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
                 <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,38" IsReadOnly="True" Height="32"/>
                 <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,37,0,3" IsReadOnly="True"/>
-                <TextBox x:Name="LH16SignalStrength" HorizontalAlignment="Left" Grid.Row="9" Grid.RowSpan="3" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="200" Text="LH16 signal = "/>
+                <TextBox x:Name="LH16SignalStrengthBox" HorizontalAlignment="Left" Grid.Row="9" Grid.RowSpan="3" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="200" Text="LH16 signal = "/>
                 <TextBox x:Name="SpotSizeTextBox" Grid.Row="12" Grid.Column="1" HorizontalAlignment="Left" Width="100" Margin="0,3,0,290.333" IsReadOnly="True" Height="32"/>
                 <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="12" Width="100" Click="MainPage_onSpotSizeClick" Margin="0,2,0,289.333" />
                 <TextBox x:Name="StatusTextBox" Grid.Row="12" Grid.ColumnSpan="2" TextWrapping="Wrap" Width="200" Margin="0,40,0,-30.667" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Auto"/>

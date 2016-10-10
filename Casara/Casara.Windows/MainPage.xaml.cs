@@ -128,8 +128,6 @@ namespace Casara
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
-            //auto services = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(
-                //RfcommServiceId.ObexObjectPush));
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
             ParsedDataPoints = new List<ArduinoDataPoint>();
             synchronizationContext = SynchronizationContext.Current;
@@ -166,8 +164,7 @@ namespace Casara
                 BTStopButton.IsEnabled = false;
                 BTStartButton.IsEnabled = true;
                 DisplayRequested = false;
-                //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
-                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
+
                 await ConnectBT();
             }
             catch(Exception ex)
@@ -287,16 +284,12 @@ namespace Casara
             Esri.ArcGISRuntime.Layers.Graphic Graphic = new Esri.ArcGISRuntime.Layers.Graphic();
             Graphic.Geometry = Poly;
             Graphic.Symbol = Fill;
-
-            //Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
             
             try
             {
                 if (MainMap.Layers.Count == 0)
                     MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
 
-                //Esri.ArcGISRuntime.Layers.GraphicsLayer test = MainMapView.Map.Layers["ShapeLayer"] as Esri.ArcGISRuntime.Layers.GraphicsLayer;
-                //test.Graphics.Add(Graphic);
                 if (DataLayer != null)
                     DataLayer.Graphics.Add(Graphic);
             }
@@ -339,7 +332,6 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     MainMapView.SetView(NewCentre,MapScale);
-                    //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 200, 0x00ff0000);
                 }
                 );
             }
@@ -406,6 +398,12 @@ namespace Casara
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
             ClearPoints(true);
+            LatitudeBox.Text = "Latitude = ";
+            LongitudeBox.Text = "Longitude = ";
+            AccuracyBox.Text = "Accuracy = ";
+            SignalStrengthTextBox.Text = "Signal = ";
+            BatteryStrengthTextBox.Text = "Battery = ";
+            LH16SignalStrengthBox.Text = "LH16 Signal = ";
             StatusTextBox.Text = "";
         }
 
@@ -539,7 +537,7 @@ namespace Casara
 
             //LH16 Signal strength
             if (!SignalList[2].Equals(""))
-                LH16SignalStrength.Text = "LH16 signal = " + SignalList[2].ToString();
+                LH16SignalStrengthBox.Text = "LH16 signal = " + SignalList[2].ToString();
 
             //Direction Indication
             if (!SignalList[3].Equals(""))
@@ -612,14 +610,12 @@ namespace Casara
                 if (Point.SignalStrength > MaxIntensity)
                 {
                     MaxIntensity = Point.SignalStrength;
-                    //UpdateShapeColours(Colour);
                 }
                     
 
                 if (Point.SignalStrength < MinIntensity)
                 {
                     MinIntensity = Point.SignalStrength;
-                    //UpdateShapeColours(Colour);
                 }
 
                 if (Point.Plotted == false)

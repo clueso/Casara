@@ -25,9 +25,7 @@ namespace Casara
         private RfcommDeviceService BTService;
         private StreamSocket BTStreamSocket;
         private DataReader BTStreamSocketReader;
-        private DataWriter BTStreamSocketWriter;
         private BluetoothConnectionState BTState;
-        private Stopwatch watch;
         private bool display;
 
         public delegate void AddOnExceptionOccuredDelegate(object sender, Exception ex);
@@ -54,7 +52,7 @@ namespace Casara
             BTService = null;
             BTStreamSocket = null;
             BTStreamSocketReader = null;
-            BTStreamSocketWriter = null;
+            //BTStreamSocketWriter = null;
             BTState = BluetoothConnectionState.Disconnected;
             display = false;
         }
@@ -101,14 +99,11 @@ namespace Casara
                     BTStreamSocket = new StreamSocket();
                     await BTStreamSocket.ConnectAsync(BTService.ConnectionHostName, BTService.ConnectionServiceName,
                                                       SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
-                    BTStreamSocketWriter = new DataWriter(BTStreamSocket.OutputStream);
                     BTStreamSocketReader = new DataReader(BTStreamSocket.InputStream);
                     BTStreamSocketReader.ByteOrder = ByteOrder.LittleEndian;
                     BTStreamSocketReader.UnicodeEncoding = Windows.Storage.Streams.UnicodeEncoding.Utf8;
                     
                     this.BTState = BluetoothConnectionState.Connected;
-                    watch = new Stopwatch();
-                    watch.Start();
                 }
                 else
                     OnExceptionOccuredEvent(this, new Exception("Unable to create service.\nMake sure that the 'bluetooth.rfcomm' capability is declared with a function of type 'name:serialPort' in Package.appxmanifest."));
@@ -146,7 +141,6 @@ namespace Casara
                     string message = BTStreamSocketReader.ReadString(MessageLength);
                     if (display)
                         OnMessageReceivedEvent(this, message);
-                    Debug.WriteLine("Time: " + watch.ElapsedMilliseconds.ToString() + " Message: " + message);
                 }
                 catch (Exception ex)
                 {
@@ -160,14 +154,7 @@ namespace Casara
         {
             if (BTStreamSocketReader != null)
                 BTStreamSocketReader = null;
-
-            if (BTStreamSocketWriter != null)
-            {
-                BTStreamSocketWriter.DetachStream();
-                BTStreamSocketWriter.Dispose();
-                BTStreamSocketWriter = null;
-            }
-                
+ 
             if (BTStreamSocket != null)
             {
                 BTStreamSocket.Dispose();

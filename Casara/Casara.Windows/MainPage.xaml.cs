@@ -774,7 +774,15 @@ namespace Casara
             if (OnlineMapBaseLayer == null)
             {
                 OnlineMapBaseLayer = new ArcGISTiledMapServiceLayer(new Uri(BaseMapUrl));
-                await OnlineMapBaseLayer.InitializeAsync();
+                try
+                {
+                    await OnlineMapBaseLayer.InitializeAsync();
+                }
+                catch(Exception)
+                {
+                    StatusTextBox.Text = "Could not load map. Please check your internet connection and restart the app";
+                    return;
+                }                
             }
 
             if (DataLayer == null)

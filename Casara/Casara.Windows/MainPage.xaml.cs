@@ -82,6 +82,7 @@ namespace Casara
         private bool DisplayRequested;
         private readonly SynchronizationContext synchronizationContext;
         private int TotalPlottedPoints;
+        private List<int> StrengthList;
 
         /// <summary>
         /// This can be changed to a strongly typed view model.
@@ -130,6 +131,7 @@ namespace Casara
             BTClass.MessageReceived += BTClass_OnDataReceived;
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
             ParsedDataPoints = new List<ArduinoDataPoint>();
+            StrengthList = new List<int>();
             synchronizationContext = SynchronizationContext.Current;
             TotalPlottedPoints = 0;
         }
@@ -548,6 +550,15 @@ namespace Casara
                 BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
         }
 
+        private int Median(List<int> l)
+        {
+            if (l.Count == 0)
+                return 0;
+            
+            l.Sort();
+            return l[l.Count / 2];
+        }
+
         private void ParseMessage(string message)
         {
             string TrimmedMessage;
@@ -577,7 +588,10 @@ namespace Casara
                 if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
                 {
                     string[] SignalList = Str.Split(',');
-                    
+
+                    if (!SignalList[2].Equals(""))
+                        StrengthList.Add(Convert.ToInt32(SignalList[2]));
+
                     if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
                     {
                         //Point Data
@@ -585,12 +599,15 @@ namespace Casara
                         // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
                         ParsedDataPoints.Add(new ArduinoDataPoint
                         {
+                            //SignalStrength = Median(StrengthList),
                             SignalStrength = Convert.ToInt32(SignalList[2]),
                             Latitude = Convert.ToDouble(SignalList[4]),
                             Longitude = Convert.ToDouble(SignalList[5]),
                             Radius = DefaultRadius,
                             Plotted = false
                         });
+
+                        StrengthList.Clear();
                     }
 
                     synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
@@ -724,9 +741,9 @@ namespace Casara
                                                                      creationProgress,
                                                                      downloadProgress);
             }
-            catch(Exception)
+            catch(Exception except)
             {
-                StatusTextBox.Text += "Downloading Tile Package failed...stopping\n";
+                StatusTextBox.Text += "Downloading Tile Package failed..." + except.Message + " stopping\n";
                 return;
             }
             

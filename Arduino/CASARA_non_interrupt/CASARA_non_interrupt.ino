@@ -169,7 +169,10 @@ void clipping () {
   int ledLevel = map(maximum, 0, 1023, 0, LED_COUNT);
   
   for (int thisLed = 0; thisLed < ledLevel; thisLed++)
-    digitalWrite(ledPins[thisLed], HIGH);
+    if (thisLed < ledLevel)
+      digitalWrite(ledPins[thisLed], HIGH);
+    else
+      digitalWrite(ledPins[thisLed], LOW);
 }
 
 // Interrupt Service Routine for Timer1

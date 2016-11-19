@@ -539,7 +539,7 @@ namespace Casara
 
             //LH16 Signal strength
             if (!SignalList[2].Equals(""))
-                LH16SignalStrength.Text = "LH16 signal = " + SignalList[2].ToString();
+                LH16SignalStrengthBox.Text = "LH16 signal = " + SignalList[2].ToString();
 
             //Direction Indication
             if (!SignalList[3].Equals(""))

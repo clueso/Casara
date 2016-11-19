@@ -44,6 +44,23 @@ unsigned int set_timer_value(int Hz)
   return (unsigned int)((16L*pow(10,6))/divisor);
 }
 
+int str_to_int(char *str)
+{
+  return (str[0] - '0') * 10 + (str[1] - '0');
+}
+
+void handle_serial_read()
+{
+  char buf[10];
+
+  if (!Serial.available())
+    return;
+
+  Serial.readBytesUntil('*', buf, 20);
+  if (buf[0] == 'f')
+    OCR1A = set_timer_value(str_to_int(buf+1));
+}
+
 // 0 - battery, 1 - audio, 2 - strength, 3 - direction
 void transmit_data()
 {
@@ -109,7 +126,7 @@ void setup(){
     pinMode(ledPins[thisLed], OUTPUT);
 
   // Set up GSPS
-  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA); // RMC (recommended minimum) and GGA (fix data) including altitude
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY); // RMC (recommended minimum) and GGA (fix data) including altitude
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);    // Set the update rate at 1Hz
   GPS.sendCommand(PGCMD_ANTENNA);               // Request updates on antenna status
   useInterrupt(true);

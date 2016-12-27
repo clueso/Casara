@@ -521,16 +521,19 @@ namespace Casara
         {
             string[] SignalList = (string[])o;
             
-            try
+            if (ParsedDataPoints.Count > 0)
             {
-                ArduinoDataPoint Point = ParsedDataPoints.Last();
+                try
+                {
+                    ArduinoDataPoint Point = ParsedDataPoints.Last();
 
-                LatitudeBox.Text = "Latitude = " + Point.Latitude.ToString();
-                LongitudeBox.Text = "Longitude = " + Point.Longitude.ToString();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived:setting text boxes");
+                    LatitudeBox.Text = "Latitude = " + Point.Latitude.ToString();
+                    LongitudeBox.Text = "Longitude = " + Point.Longitude.ToString();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived:setting text boxes");
+                }
             }
 
             //Audio strength

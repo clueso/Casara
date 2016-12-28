@@ -195,7 +195,7 @@ namespace Casara
                 await ListenTask;
                 BTClass.DisconnectDevice();
             }
-                
+ 
             if (ActiveDisplay != null && DisplayRequested == true)
             {
                 ActiveDisplay.RequestRelease();
@@ -495,7 +495,7 @@ namespace Casara
             try
             {
                 await Task.Run(() => ParseMessage(message));
-                await PlotList();              
+                await PlotList();
             }
             catch(Exception ex)
             {
@@ -520,7 +520,7 @@ namespace Casara
         private void UpdateUI(object o)
         {
             string[] SignalList = (string[])o;
-            
+
             if (ParsedDataPoints.Count > 0)
             {
                 try

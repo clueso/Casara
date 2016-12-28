@@ -27,6 +27,7 @@ namespace Casara
         private DataReader BTStreamSocketReader;
         private BluetoothConnectionState BTState;
         private bool display;
+        private const int ReadAttemptLength = 64;
 
         public delegate void AddOnExceptionOccuredDelegate(object sender, Exception ex);
         public event AddOnExceptionOccuredDelegate ExceptionOccured;
@@ -52,7 +53,6 @@ namespace Casara
             BTService = null;
             BTStreamSocket = null;
             BTStreamSocketReader = null;
-            //BTStreamSocketWriter = null;
             BTState = BluetoothConnectionState.Disconnected;
             display = false;
         }
@@ -102,7 +102,6 @@ namespace Casara
                     BTStreamSocketReader = new DataReader(BTStreamSocket.InputStream);
                     BTStreamSocketReader.ByteOrder = ByteOrder.LittleEndian;
                     BTStreamSocketReader.UnicodeEncoding = Windows.Storage.Streams.UnicodeEncoding.Utf8;
-                    
                     this.BTState = BluetoothConnectionState.Connected;
                 }
                 else
@@ -117,28 +116,17 @@ namespace Casara
 
         public async Task ListenForData()
         {
-            uint MessageLength;
             uint BytesReturned;
 
             while (BTStreamSocketReader != null && BTState != BluetoothConnectionState.Disconnecting)
             {
                 try
                 {
-                    // Read first byte (length of the subsequent message, 255 or less). 
-                    BytesReturned = await BTStreamSocketReader.LoadAsync(1);
-                    if (BytesReturned != 1)
-                        // The underlying socket was closed before we were able to read the whole data. 
+                    BytesReturned = await BTStreamSocketReader.LoadAsync(ReadAttemptLength);
+                    if (BytesReturned == 0)
                         return;
-
-                    // Read the message. 
-                    BytesReturned = BTStreamSocketReader.ReadByte();
-                    MessageLength = await BTStreamSocketReader.LoadAsync(BytesReturned);
-                    if (MessageLength != BytesReturned)
-                        // The underlying socket was closed before we were able to read the whole data. 
-                        return;
-
                     // Read the message and process it.
-                    string message = BTStreamSocketReader.ReadString(MessageLength);
+                    string message = BTStreamSocketReader.ReadString(BytesReturned);
                     if (display)
                         OnMessageReceivedEvent(this, message);
                 }

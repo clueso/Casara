@@ -92,12 +92,14 @@ void transmit_data()
   if (GPS.fix && gps_sentence_received) {
     Serial.print(","); 
     Serial.print(GPS.latitudeDegrees, 4);
-    Serial.print(","); 
-    Serial.println(GPS.longitudeDegrees, 4);
+    Serial.print(",");
+    Serial.print(GPS.longitudeDegrees, 4);
+    Serial.print(",");
+    Serial.println(GPS.altitude);
     gps_sentence_received = false;
   }
   else {
-    Serial.println(",,");
+    Serial.println(",,,");
   }
   maximum = 0;
   ZeroSumCount();
@@ -126,7 +128,7 @@ void setup(){
     pinMode(ledPins[thisLed], OUTPUT);
 
   // Set up GSPS
-  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY); // RMC (recommended minimum) and GGA (fix data) including altitude
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA); // RMC (recommended minimum) and GGA (fix data) including altitude
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);    // Set the update rate at 1Hz
   GPS.sendCommand(PGCMD_ANTENNA);               // Request updates on antenna status
   useInterrupt(true);

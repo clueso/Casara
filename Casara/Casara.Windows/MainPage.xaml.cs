@@ -46,6 +46,7 @@ namespace Casara
         public double Latitude;
         public double Longitude;
         public double Radius;
+        public double Altitude;
         public bool Plotted;
     };
 
@@ -83,6 +84,7 @@ namespace Casara
         private readonly SynchronizationContext synchronizationContext;
         private int TotalPlottedPoints;
         private List<int> StrengthList;
+        private const int GPSMessageNumOfFields = 7;
 
         /// <summary>
         /// This can be changed to a strongly typed view model.
@@ -588,7 +590,7 @@ namespace Casara
             foreach(string Str in DataPointList)
             {
                 //No. of separators = No. of variables - 1
-                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
+                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == (GPSMessageNumOfFields - 1))
                 {
                     string[] SignalList = Str.Split(',');
 
@@ -607,6 +609,7 @@ namespace Casara
                             Latitude = Convert.ToDouble(SignalList[4]),
                             Longitude = Convert.ToDouble(SignalList[5]),
                             Radius = DefaultRadius,
+                            Altitude = Convert.ToDouble(SignalList[6]),
                             Plotted = false
                         });
 
@@ -645,7 +648,8 @@ namespace Casara
                     MeasuredSignalStrength.Add(Point);
                     if (DataFile != null)
                         await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
-                                + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
+                                + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000")
+                                + "," + Point.Altitude.ToString("#.00000") + "\r\n");
                 }
             }
             TotalPlottedPoints += ParsedDataPoints.Count;

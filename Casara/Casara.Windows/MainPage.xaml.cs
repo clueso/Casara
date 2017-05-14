@@ -23,6 +23,7 @@ using Windows.UI.Xaml.Shapes;
 //using Bing.Maps.HeatMaps;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Networking;
 using Windows.Devices.Enumeration;
@@ -83,7 +84,6 @@ namespace Casara
         private bool DisplayRequested;
         private readonly SynchronizationContext synchronizationContext;
         private int TotalPlottedPoints;
-        private List<int> StrengthList;
         private const int GPSMessageNumOfFields = 7;
 
         /// <summary>
@@ -133,7 +133,6 @@ namespace Casara
             BTClass.MessageReceived += BTClass_OnDataReceived;
             MeasuredSignalStrength = new List<ArduinoDataPoint>();
             ParsedDataPoints = new List<ArduinoDataPoint>();
-            StrengthList = new List<int>();
             synchronizationContext = SynchronizationContext.Current;
             TotalPlottedPoints = 0;
         }
@@ -301,26 +300,70 @@ namespace Casara
             {
                 Debug.WriteLine("DrawCircle exception:" + e.Message);
             }
-
-            StatusTextBox.Text += "DrawCircle done...\n";
         }
 
-        private void StartButton_Click(object sender, RoutedEventArgs e)
+        private void ClearTextBoxes()
         {
-                try
-                {
-                    if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
-                    {
-                        GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
-                    }
+            LatitudeBox.Text = "Latitude = ";
+            LongitudeBox.Text = "Longitude = ";
+            AccuracyBox.Text = "Accuracy = ";
+            SignalStrengthTextBox.Text = "Signal = ";
+            BatteryStrengthTextBox.Text = "Battery = ";
+            LH16SignalStrengthBox.Text = "LH16 Signal = ";
+            StatusTextBox.Text = "";
+        }
 
-                    StayTimer.Reset();
-                    StayTimer.Start();
-                }
-                catch (Exception ex)
+        private void AddToPlotList(string[] SignalList)
+        {
+            if (SignalList.Length < 4)
+                return;
+
+            if (ParsedDataPoints != null && !SignalList[0].Equals("") && !SignalList[1].Equals("") && !SignalList[2].Equals(""))
+            {
+                //Point Data
+                // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Direction, 5 & 6 - GPS
+                // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
+                ParsedDataPoints.Add(new ArduinoDataPoint
                 {
-                    Debug.WriteLine("StartButton_Click exception:" + ex.Message);
-                }            
+                    SignalStrength = Convert.ToInt32(SignalList[0]),
+                    Latitude = Convert.ToDouble(SignalList[1]),
+                    Longitude = Convert.ToDouble(SignalList[2]),
+                    Radius = DefaultRadius,
+                    Altitude = Convert.ToDouble(SignalList[3]),
+                    Plotted = false
+                });
+            }
+        }
+
+        private async void LoadSavedFile()
+        {
+            string[] SignalList;
+            string str;
+
+            FileOpenPicker FilePicker = new FileOpenPicker();
+            FilePicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            FilePicker.FileTypeFilter.Add(".txt");
+            
+            StorageFile file = await FilePicker.PickSingleFileAsync();
+            Stream s = await file.OpenStreamForReadAsync();
+            StreamReader sr = new StreamReader(s);
+            while ((str = sr.ReadLine()) != null)
+            {
+                if (str[0] == '#')
+                    continue;
+                SignalList = str.Split(',');
+                AddToPlotList(SignalList);
+            }
+            await PlotList();
+            sr.Dispose();
+            s.Dispose();
+        }
+
+        private void LoadFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            ClearPoints(true);
+            ClearTextBoxes();
+            LoadSavedFile();
         }
 
         async private void GPSPositionChanged(Geolocator sender, PositionChangedEventArgs e)
@@ -392,7 +435,10 @@ namespace Casara
                 Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
                 GraphicsList.Clear();
                 if (ClearData == true)
+                {
                     MeasuredSignalStrength.Clear();
+                    TotalPlottedPoints = 0;
+                }
             }
             catch (Exception)
             {
@@ -402,13 +448,7 @@ namespace Casara
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
             ClearPoints(true);
-            LatitudeBox.Text = "Latitude = ";
-            LongitudeBox.Text = "Longitude = ";
-            AccuracyBox.Text = "Accuracy = ";
-            SignalStrengthTextBox.Text = "Signal = ";
-            BatteryStrengthTextBox.Text = "Battery = ";
-            LH16SignalStrengthBox.Text = "LH16 Signal = ";
-            StatusTextBox.Text = "";
+            ClearTextBoxes();
         }
 
         private string CreateFileName()
@@ -432,7 +472,7 @@ namespace Casara
                 try
                 {
                     DataFile = await DataFolder.CreateFileAsync(CreateFileName(), CreationCollisionOption.ReplaceExisting);
-                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started " + DateTime.Now.ToString() + "\r\n");
+                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "# New session started " + DateTime.Now.ToString() + "\r\n");
                 }
                 catch (Exception ex)
                 {
@@ -478,6 +518,7 @@ namespace Casara
             BTClass.StartDataDisplay();
             BTStartButton.IsEnabled = false;
             BTStopButton.IsEnabled = true;
+            LoadFileButton.IsEnabled = false;
         }
 
         private void BTStop_Clicked(object sender, RoutedEventArgs e)
@@ -485,6 +526,7 @@ namespace Casara
             BTClass.StopDataDisplay();
             BTStartButton.IsEnabled = true;
             BTStopButton.IsEnabled = false;
+            LoadFileButton.IsEnabled = true;
         }
 
         public void BTClass_OnExceptionOccured(object sender, Exception ex)
@@ -594,9 +636,6 @@ namespace Casara
                 {
                     string[] SignalList = Str.Split(',');
 
-                    if (!SignalList[2].Equals(""))
-                        StrengthList.Add(Convert.ToInt32(SignalList[2]));
-
                     if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
                     {
                         //Point Data
@@ -604,7 +643,6 @@ namespace Casara
                         // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
                         ParsedDataPoints.Add(new ArduinoDataPoint
                         {
-                            //SignalStrength = Median(StrengthList),
                             SignalStrength = Convert.ToInt32(SignalList[2]),
                             Latitude = Convert.ToDouble(SignalList[4]),
                             Longitude = Convert.ToDouble(SignalList[5]),
@@ -612,8 +650,6 @@ namespace Casara
                             Altitude = Convert.ToDouble(SignalList[6]),
                             Plotted = false
                         });
-
-                        StrengthList.Clear();
                     }
 
                     synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);

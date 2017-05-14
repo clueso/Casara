@@ -94,7 +94,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button x:Name="StartButton" Content="GPS Start" Grid.Row="0" Grid.Column="0" Click="StartButton_Click" IsEnabled="False" Width="100" />
+                <Button x:Name="LoadFileButton" Content="View" Grid.Row="0" Grid.Column="0" Click="LoadFileButton_Click" Width="100" />
                 <Button x:Name="ClearButton" Content="Clear" Grid.Row="1" Grid.Column="0" Click="ClearButton_Click" Width="100" />
                 <Button x:Name="StopButton" Content="GPS Stop" Grid.Row="2" Grid.Column="0"  Click="StopButton_Click" IsEnabled="False" Width="100"/>
                 <Button x:Name="BTStartButton" Content="BT Start" Grid.Row="0" Grid.Column="1" Click="BTStarted_Clicked" Width="100"/>

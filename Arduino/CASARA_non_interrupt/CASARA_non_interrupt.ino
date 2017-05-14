@@ -22,7 +22,6 @@ const int ADC_CHANNELS = 4;           // Set how many analogue inputs to read, s
 int maximum;                          // Audio strength value after ADC
 
 // Create an array to store the results of the ADC conversions
-// 0 - battery, 1 - audio, 2 - strength, 3 - direction
 volatile unsigned int myvar[ADC_CHANNELS];
 int unsigned Sums[ADC_CHANNELS] = {0};
 int unsigned Counts[ADC_CHANNELS] = {0};
@@ -61,16 +60,12 @@ void handle_serial_read()
     OCR1A = set_timer_value(str_to_int(buf+1));
 }
 
-// 0 - battery, 1 - audio, 2 - strength, 3 - direction
+// The app assumes the same order as below. If this order is changed, search for "Arduino data indices" in the app and change the order there.
+// Also review functions AddToPlotList() and ParseMessage() to see if changing the order can break anything.
+// It is preferable to keep data that will be saved in the data file at the head of the list. Refer to note for AddToPlotList() in the app.
+// 0 - signal strength, 1 - Latitude (if present), 2 - Longitude (if present), 3 - Altitude (if present), 4 - direction, 5 - Mean of audio, 6 - battery
 void transmit_data()
 {
-  //Instantaneous value of Battery
-  Serial.print(myvar[0]);
-  Serial.print(",");
- 
- //Average value of Audio
-  Serial.print(Sums[1]/Counts[1]);
-  Serial.print(",");
   //Maximum Audio value
   //Serial.print(maximum);
   //Serial.print(",");
@@ -81,13 +76,10 @@ void transmit_data()
   
   //Instantaneous value of strength reading
   Serial.print(myvar[2]);
-  Serial.print(",");
+  
   //Average value of direction
   //Serial.print(Sums[3]/Counts[3]);
   //Serial.print(",");
-  
-  //Instantaneous value of direction
-  Serial.print(myvar[3]);
   
   if (GPS.fix && gps_sentence_received) {
     Serial.print(","); 
@@ -95,12 +87,23 @@ void transmit_data()
     Serial.print(",");
     Serial.print(GPS.longitudeDegrees, 4);
     Serial.print(",");
-    Serial.println(GPS.altitude);
+    Serial.print(GPS.altitude);
+    Serial.print(",");
     gps_sentence_received = false;
   }
   else {
-    Serial.println(",,,");
+    Serial.print(",,,,");
   }
+  //Instantaneous value of direction
+  Serial.print(myvar[3]);
+  Serial.print(",");
+  
+  //Average value of Audio
+  Serial.print(Sums[1]/Counts[1]);
+  Serial.print(",");
+  //Instantaneous value of Battery
+  Serial.println(myvar[0]);
+  
   maximum = 0;
   ZeroSumCount();
   transmit_ready = false;

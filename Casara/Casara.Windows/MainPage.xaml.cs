@@ -51,6 +51,8 @@ namespace Casara
         public bool Plotted;
     };
 
+    
+
     public delegate void UIUpdateDelegate(object o);
     /// <summary>
     /// A basic page that provides characteristics common to most applications.
@@ -86,6 +88,14 @@ namespace Casara
         private int TotalPlottedPoints;
         private const int GPSMessageNumOfFields = 7;
 
+        //Arduino data indices
+        private const int MeanAudioIndex = 5;
+        private const int BatteryStatusIndex = 6;
+        private const int DirectionIndex = 4;
+        private const int SignalStrengthIndex = 0;
+        private const int LatitudeIndex = 1;
+        private const int LongitudeIndex = 2;
+        private const int AltitudeIndex = 3;
         /// <summary>
         /// This can be changed to a strongly typed view model.
         /// </summary>
@@ -312,24 +322,29 @@ namespace Casara
             LH16SignalStrengthBox.Text = "LH16 Signal = ";
             StatusTextBox.Text = "";
         }
-
+        
+        // AddToPlotList() is called from two places, when the data is read from the Arduino and when 
+        // a previously saved data file is reloaded. The first case has more data than the second, 
+        // because not all data is saved in the file. Take care that the indices used in this function
+        // do not point to data which is absent in the data list. Ideally, we will always keep the saved
+        // data at the head of the list to avoid this problem.
         private void AddToPlotList(string[] SignalList)
         {
             if (SignalList.Length < 4)
                 return;
 
-            if (ParsedDataPoints != null && !SignalList[0].Equals("") && !SignalList[1].Equals("") && !SignalList[2].Equals(""))
+            if (ParsedDataPoints != null && !SignalList[SignalStrengthIndex].Equals("") && !SignalList[LatitudeIndex].Equals("") && !SignalList[LongitudeIndex].Equals(""))
             {
                 //Point Data
                 // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Direction, 5 & 6 - GPS
                 // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
                 ParsedDataPoints.Add(new ArduinoDataPoint
                 {
-                    SignalStrength = Convert.ToInt32(SignalList[0]),
-                    Latitude = Convert.ToDouble(SignalList[1]),
-                    Longitude = Convert.ToDouble(SignalList[2]),
+                    SignalStrength = Convert.ToInt32(SignalList[SignalStrengthIndex]),
+                    Latitude = Convert.ToDouble(SignalList[LatitudeIndex]),
+                    Longitude = Convert.ToDouble(SignalList[LongitudeIndex]),
                     Radius = DefaultRadius,
-                    Altitude = Convert.ToDouble(SignalList[3]),
+                    Altitude = Convert.ToDouble(SignalList[AltitudeIndex]),
                     Plotted = false
                 });
             }
@@ -579,22 +594,22 @@ namespace Casara
                     Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived:setting text boxes");
                 }
             }
-
+            
             //Audio strength
-            if (!SignalList[1].Equals(""))
-                SignalStrengthTextBox.Text = "Audio signal = " + SignalList[1].ToString();
+            if (!SignalList[MeanAudioIndex].Equals(""))
+                SignalStrengthTextBox.Text = "Audio signal = " + SignalList[MeanAudioIndex].ToString();
 
             //LH16 Signal strength
-            if (!SignalList[2].Equals(""))
-                LH16SignalStrengthBox.Text = "LH16 signal = " + SignalList[2].ToString();
+            if (!SignalList[SignalStrengthIndex].Equals(""))
+                LH16SignalStrengthBox.Text = "LH16 signal = " + SignalList[SignalStrengthIndex].ToString();
 
             //Direction Indication
-            if (!SignalList[3].Equals(""))
-                SetDirIndicators(Convert.ToInt32(SignalList[3]));
+            if (!SignalList[DirectionIndex].Equals(""))
+                SetDirIndicators(Convert.ToInt32(SignalList[DirectionIndex]));
 
             //Battery Status
-            if (!SignalList[0].Equals(""))
-                BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
+            if (!SignalList[BatteryStatusIndex].Equals(""))
+                BatteryStrengthTextBox.Text = "Battery = " + SignalList[BatteryStatusIndex].ToString();
         }
 
         private int Median(List<int> l)
@@ -636,24 +651,24 @@ namespace Casara
                 {
                     string[] SignalList = Str.Split(',');
 
-                    if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
-                    {
-                        //Point Data
-                        // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Direction, 5 & 6 - GPS
-                        // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
-                        ParsedDataPoints.Add(new ArduinoDataPoint
-                        {
-                            SignalStrength = Convert.ToInt32(SignalList[2]),
-                            Latitude = Convert.ToDouble(SignalList[4]),
-                            Longitude = Convert.ToDouble(SignalList[5]),
-                            Radius = DefaultRadius,
-                            Altitude = Convert.ToDouble(SignalList[6]),
-                            Plotted = false
-                        });
-                    }
+                    AddToPlotList(SignalList);
+                    //if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
+                    //{
+                    //    //Point Data
+                    //    // 0 - signal strength, 1 - Latitude (if present), 2 - Longitude (if present), 3 - Altitude (if present), 4 - direction, 5 - Mean of audio, 6 - battery
+                    //    ParsedDataPoints.Add(new ArduinoDataPoint
+                    //    {
+                    //        SignalStrength = Convert.ToInt32(SignalList[2]),
+                    //        Latitude = Convert.ToDouble(SignalList[4]),
+                    //        Longitude = Convert.ToDouble(SignalList[5]),
+                    //        Radius = DefaultRadius,
+                    //        Altitude = Convert.ToDouble(SignalList[6]),
+                    //        Plotted = false
+                    //    });
+                    //}
 
                     synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
-                }                
+                }
             }
         }
 

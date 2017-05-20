@@ -51,15 +51,12 @@ namespace Casara
         public bool Plotted;
     };
 
-    
-
     public delegate void UIUpdateDelegate(object o);
     /// <summary>
     /// A basic page that provides characteristics common to most applications.
     /// </summary>
     public sealed partial class MainPage : Page
     {
-
         private NavigationHelper navigationHelper;
         private ObservableDictionary defaultViewModel = new ObservableDictionary();
         private GPSDataClass GPS = null;
@@ -70,7 +67,6 @@ namespace Casara
         private double MapScale;
         private BlueToothClass BTClass;
         private Task ListenTask;
-        private List<ArduinoDataPoint> MeasuredSignalStrength;
         private List<ArduinoDataPoint> ParsedDataPoints;
         private string DataBuffer;
         private StorageFolder DataFolder;
@@ -85,7 +81,6 @@ namespace Casara
         private DisplayRequest ActiveDisplay;
         private bool DisplayRequested;
         private readonly SynchronizationContext synchronizationContext;
-        private int TotalPlottedPoints;
         private const int GPSMessageNumOfFields = 7;
 
         //Arduino data indices
@@ -141,10 +136,8 @@ namespace Casara
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
-            MeasuredSignalStrength = new List<ArduinoDataPoint>();
             ParsedDataPoints = new List<ArduinoDataPoint>();
             synchronizationContext = SynchronizationContext.Current;
-            TotalPlottedPoints = 0;
         }
 
         /// <summary>
@@ -369,7 +362,7 @@ namespace Casara
                 SignalList = str.Split(',');
                 AddToPlotList(SignalList);
             }
-            await PlotList();
+            await PlotList(0);
             sr.Dispose();
             s.Dispose();
         }
@@ -451,8 +444,7 @@ namespace Casara
                 GraphicsList.Clear();
                 if (ClearData == true)
                 {
-                    MeasuredSignalStrength.Clear();
-                    TotalPlottedPoints = 0;
+                    ParsedDataPoints.Clear();
                 }
             }
             catch (Exception)
@@ -551,10 +543,12 @@ namespace Casara
 
         public async void BTClass_OnDataReceived(object sender, string message)
         {
+            int LastPlottedPoint = ParsedDataPoints.Count;
+
             try
             {
                 await Task.Run(() => ParseMessage(message));
-                await PlotList();
+                await PlotList(LastPlottedPoint + 1);
             }
             catch(Exception ex)
             {
@@ -652,32 +646,17 @@ namespace Casara
                     string[] SignalList = Str.Split(',');
 
                     AddToPlotList(SignalList);
-                    //if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
-                    //{
-                    //    //Point Data
-                    //    // 0 - signal strength, 1 - Latitude (if present), 2 - Longitude (if present), 3 - Altitude (if present), 4 - direction, 5 - Mean of audio, 6 - battery
-                    //    ParsedDataPoints.Add(new ArduinoDataPoint
-                    //    {
-                    //        SignalStrength = Convert.ToInt32(SignalList[2]),
-                    //        Latitude = Convert.ToDouble(SignalList[4]),
-                    //        Longitude = Convert.ToDouble(SignalList[5]),
-                    //        Radius = DefaultRadius,
-                    //        Altitude = Convert.ToDouble(SignalList[6]),
-                    //        Plotted = false
-                    //    });
-                    //}
-
                     synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
                 }
             }
         }
 
-        private async Task PlotList()
+        private async Task PlotList(int StartIndex)
         {
             ArduinoDataPoint Point;
             int i;
                         
-            for (i = 0; i < ParsedDataPoints.Count; i++)
+            for (i = StartIndex; i < ParsedDataPoints.Count; i++)
             {
                 Point = ParsedDataPoints[i];
 
@@ -685,7 +664,6 @@ namespace Casara
                 {
                     MaxIntensity = Point.SignalStrength;
                 }
-                    
 
                 if (Point.SignalStrength < MinIntensity)
                 {
@@ -696,16 +674,13 @@ namespace Casara
                 {
                     DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
                     Point.Plotted = true;
-                    MeasuredSignalStrength.Add(Point);
                     if (DataFile != null)
                         await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
                                 + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000")
                                 + "," + Point.Altitude.ToString("#.00000") + "\r\n");
                 }
             }
-            TotalPlottedPoints += ParsedDataPoints.Count;
-            StatusTextBox.Text = "Plotted " + TotalPlottedPoints.ToString() + " Points\n";
-            ParsedDataPoints.Clear();
+            StatusTextBox.Text = "Plotted " + ParsedDataPoints.Count.ToString() + " Points\n";
         }
 
         private void creationProgress_ProgressChanged(Object sender, ExportTileCacheJob p)
@@ -900,12 +875,12 @@ namespace Casara
             int i;
             ArduinoDataPoint tmp;
 
-            for (i = 0; i < MeasuredSignalStrength.Count; i++)
+            for (i = 0; i < ParsedDataPoints.Count; i++)
             {
-                tmp = MeasuredSignalStrength[i];
+                tmp = ParsedDataPoints[i];
                 tmp.Radius = DefaultRadius;
                 tmp.Plotted = false;
-                MeasuredSignalStrength[i] = tmp;
+                ParsedDataPoints[i] = tmp;
             }
         }
 
@@ -916,7 +891,7 @@ namespace Casara
                 DefaultRadius = Convert.ToInt32(SpotSizeTextBox.Text);
                 UpdateSpotSize();
                 ClearPoints(false);
-                await PlotList();
+                await PlotList(0);
             }
             catch(Exception)
             {

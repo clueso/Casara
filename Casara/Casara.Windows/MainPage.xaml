@@ -77,7 +77,6 @@
             <Grid Grid.Column="1" Grid.Row="1" >
                 <Grid.RowDefinitions>
                     <RowDefinition Height="auto" />
-                    <RowDefinition Height="auto"/>
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
@@ -87,30 +86,34 @@
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
                     <RowDefinition Height="auto" />
-                    <RowDefinition Height="29.667" />
-                    <RowDefinition Height="325.333"/>
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="300.333"/>
+                    <RowDefinition Height="auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button x:Name="LoadFileButton" Content="View" Grid.Row="0" Grid.Column="0" Click="LoadFileButton_Click" Width="100" />
-                <Button x:Name="ClearButton" Content="Clear" Grid.Row="1" Grid.Column="0" Click="ClearButton_Click" Width="100" />
-                <Button x:Name="StopButton" Content="GPS Stop" Grid.Row="2" Grid.Column="0"  Click="StopButton_Click" IsEnabled="False" Width="100"/>
-                <Button x:Name="BTStartButton" Content="BT Start" Grid.Row="0" Grid.Column="1" Click="BTStarted_Clicked" Width="100"/>
-                <Button x:Name="BTStopButton" Content="BT Stop" Grid.Row="1" Grid.Column="1" Click="BTStop_Clicked" Width="100"/>
-                <Button x:Name="DownloadButton" Content="Download" Grid.Row="2" Grid.Column="1" Click="onDownloadClick" Width="100" IsEnabled="False" />
-                <RadioButton x:Name="OnlineRadioButton" Content="Online" Grid.Row="3" Grid.Column="0" Checked="OnlineRadioButtonChecked" IsChecked="True" IsEnabled="False"/>
-                <RadioButton x:Name="LocalRadioButton" Content="Local" Grid.Row="3" Grid.Column="1" Checked="LocalRadioButtonChecked" IsEnabled="False"/>
-                <TextBox x:Name="LatitudeBox" Grid.Row="4" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Latitude = " Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
-                <TextBox x:Name="LongitudeBox" Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Longitude = " Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
-                <TextBox x:Name="AccuracyBox" Grid.Row="6" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Accuracy =" Width="200" Margin="0,2,0,2" IsReadOnly="True"/>
-                <TextBox x:Name="SignalStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" Margin="0,2,0,38" IsReadOnly="True" Height="32"/>
-                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" Margin="0,37,0,3" IsReadOnly="True"/>
-                <TextBox x:Name="LH16SignalStrengthBox" HorizontalAlignment="Left" Grid.Row="9" Grid.RowSpan="3" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="200" Text="LH16 signal = "/>
-                <TextBox x:Name="SpotSizeTextBox" Grid.Row="12" Grid.Column="1" HorizontalAlignment="Left" Width="100" Margin="0,3,0,290.333" Height="32" IsTextPredictionEnabled="False"/>
-                <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="12" Width="100" Click="MainPage_onSpotSizeClick" Margin="0,2,0,289.333" />
-                <TextBox x:Name="StatusTextBox" Grid.Row="12" Grid.ColumnSpan="2" TextWrapping="Wrap" Width="200" Margin="0,40,0,-30.667" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                <ListBox x:Name="BTDeviceList" Grid.Row="0" Grid.ColumnSpan="2" Width="200" Grid.RowSpan="2" Height="32" Margin="1,-3,-1,35" SelectionChanged="BTDeviceList_SelectionChanged" />
+                <Button x:Name="LoadFileButton" Content="View" Grid.Row="1" Grid.Column="0" Click="LoadFileButton_Click" Width="100" Margin="0,30,0,0" />
+                <Button x:Name="ClearButton" Content="Clear" Grid.Row="2" Grid.Column="0" Click="ClearButton_Click" Width="100" />
+                <Button x:Name="StopButton" Content="GPS Stop" Grid.Row="3" Grid.Column="0"  Click="StopButton_Click" IsEnabled="False" Width="100"/>
+                <Button x:Name="BTStartButton" Content="BT Start" Grid.Row="1" Grid.Column="1" Click="BTStarted_Clicked" Width="100" Margin="0,30,0,0"/>
+                <Button x:Name="BTStopButton" Content="BT Stop" Grid.Row="2" Grid.Column="1" Click="BTStop_Clicked" Width="100"/>
+                <Button x:Name="DownloadButton" Content="Download" Grid.Row="3" Grid.Column="1" Click="onDownloadClick" Width="100" IsEnabled="False" />
+                <RadioButton x:Name="OnlineRadioButton" Content="Online" Grid.Row="4" Grid.Column="0" Checked="OnlineRadioButtonChecked" IsChecked="True" IsEnabled="False"/>
+                <RadioButton x:Name="LocalRadioButton" Content="Local" Grid.Row="4" Grid.Column="1" Checked="LocalRadioButtonChecked" IsEnabled="False"/>
+                <TextBox x:Name="LatitudeBox" Grid.Row="5" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Latitude = " Width="200" IsReadOnly="True"/>
+                <TextBox x:Name="LongitudeBox" Grid.Row="6" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Longitude = " Width="200" IsReadOnly="True"/>
+                <TextBox x:Name="AccuracyBox" Grid.Row="7" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Accuracy =" Width="200" IsReadOnly="True"/>
+                <TextBox x:Name="SignalStrengthTextBox" Grid.Row="8" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" IsReadOnly="True" Height="32"/>
+                <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="9" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" IsReadOnly="True" Grid.RowSpan="2"/>
+                <TextBox x:Name="LH16SignalStrengthBox" HorizontalAlignment="Left" Grid.Row="10" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="200" Text="LH16 signal = " />
+                <TextBox x:Name="SpotSizeTextBox" Grid.Row="11" Grid.Column="0" HorizontalAlignment="Left" Width="100" IsTextPredictionEnabled="False" />
+                <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="11" Grid.Column ="1" Width="100" Click="MainPage_onSpotSizeClick"/>
+                <TextBox x:Name="StatusTextBox" Grid.Row="13" Grid.ColumnSpan="2" TextWrapping="Wrap" Width="200" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
             </Grid>
             <Image x:Name="ColourBarImgBox" HorizontalAlignment="Right" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Source="Assets/FullColourBar.png" Stretch="None" Margin="0,9,0,15" Grid.RowSpan="2" />
             <StackPanel Margin="28,6,514,19" Orientation="Horizontal" Grid.Row="3">
@@ -122,6 +125,7 @@
                 <ProgressBar x:Name="DirRightIndicator" HorizontalAlignment="Left" Height="20" VerticalAlignment="Top" Width="300" Maximum="512" Margin="0,0,0,-20" LargeChange="128"/>
             </StackPanel>
         </Grid>
+
 
     </Grid>
 </Page>

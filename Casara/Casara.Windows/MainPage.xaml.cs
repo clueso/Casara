@@ -81,6 +81,8 @@ namespace Casara
         private DisplayRequest ActiveDisplay;
         private bool DisplayRequested;
         private readonly SynchronizationContext synchronizationContext;
+        private DeviceInformationCollection ConnectedBTDevices;
+        private string ActiveBTDevice;
         private const int GPSMessageNumOfFields = 7;
 
         //Arduino data indices
@@ -171,6 +173,13 @@ namespace Casara
                 BTStartButton.IsEnabled = true;
                 DisplayRequested = false;
 
+                ConnectedBTDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
+                foreach (DeviceInformation DevInfo in ConnectedBTDevices)
+                {
+                    BTDeviceList.Items.Add(DevInfo.Name);
+                }
+                if (BTDeviceList.Items.Count > 0)
+                    BTDeviceList.SelectedIndex = 0;
                 await ConnectBT();
             }
             catch(Exception ex)
@@ -195,9 +204,7 @@ namespace Casara
                 GPS.GeoLoc.PositionChanged -= new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
             if (BTClass.IsBTConnected == true)
             {
-                BTClass.StartDisconnectProcess();
-                await ListenTask;
-                BTClass.DisconnectDevice();
+                await DisconnectBT();
             }
  
             if (ActiveDisplay != null && DisplayRequested == true)
@@ -353,6 +360,9 @@ namespace Casara
             FilePicker.FileTypeFilter.Add(".txt");
             
             StorageFile file = await FilePicker.PickSingleFileAsync();
+            if (file == null)
+                return;
+
             Stream s = await file.OpenStreamForReadAsync();
             StreamReader sr = new StreamReader(s);
             while ((str = sr.ReadLine()) != null)
@@ -470,6 +480,13 @@ namespace Casara
             return FileName;
         }
 
+        private async Task DisconnectBT()
+        {
+            BTClass.StartDisconnectProcess();
+            await ListenTask;
+            BTClass.DisconnectDevice();
+        }
+
         private async Task ConnectBT()
         {
             bool BTDeviceFound = false;
@@ -488,20 +505,20 @@ namespace Casara
             }
 
             //Ashwin BT = HC-05, Daniel BT = RNBT-6971
-            DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
-            foreach (DeviceInformation DevInfo in ConnectedDevices)
+            foreach (DeviceInformation DevInfo in ConnectedBTDevices)
             {
-                if (DevInfo.Name.Equals("HC-05") || DevInfo.Name.Equals("RNBT-6971"))
+                if (DevInfo.Name == BTDeviceList.SelectedItem)
                 {
                     await BTClass.ConnectDevice(DevInfo);
                     BTDeviceFound = true;
+                    ActiveBTDevice = BTDeviceList.SelectedItem.ToString();
                     break;
                 }
             }
 
             if (!BTDeviceFound)
             {
-                StatusTextBox.Text += "No known BT device found...stopping\n";
+                StatusTextBox.Text += "Selected Bluetooth device not found...stopping\n";
                 return;
             }
 
@@ -897,6 +914,19 @@ namespace Casara
             {
                 StatusTextBox.Text += "Invalid number\n";
             }
+        }
+
+        private async void BTDeviceList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (BTClass.IsBTConnected == false)
+                return;
+
+            if (ActiveBTDevice == BTDeviceList.SelectedIndex.ToString())
+                return;
+
+            await DisconnectBT();
+            await ConnectBT();
+            ActiveBTDevice = BTDeviceList.SelectedIndex.ToString();
         }
     }
 }

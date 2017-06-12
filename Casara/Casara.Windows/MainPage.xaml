@@ -111,8 +111,10 @@
                 <TextBox x:Name="SignalStrengthTextBox" Grid.Row="8" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Signal =" Width="200" IsReadOnly="True" Height="32"/>
                 <TextBox x:Name="BatteryStrengthTextBox" Grid.Row="9" Grid.ColumnSpan="2" HorizontalAlignment="Left" Text="Battery =" Width="200" IsReadOnly="True" Grid.RowSpan="2"/>
                 <TextBox x:Name="LH16SignalStrengthBox" HorizontalAlignment="Left" Grid.Row="10" TextWrapping="Wrap" VerticalAlignment="Top" Grid.ColumnSpan="2" Width="200" Text="LH16 signal = " />
-                <TextBox x:Name="SpotSizeTextBox" Grid.Row="11" Grid.Column="0" HorizontalAlignment="Left" Width="100" IsTextPredictionEnabled="False" />
+                <TextBox x:Name="SpotSizeTextBox" Grid.Row="11" Grid.Column="0" HorizontalAlignment="Left" Width="100"/>
                 <Button x:Name="SpotSizeButton" Content="Resize" Grid.Row="11" Grid.Column ="1" Width="100" Click="MainPage_onSpotSizeClick"/>
+                <TextBox x:Name="FileSaveLocTextBox" Grid.Row="12" Grid.Column="0" HorizontalAlignment="Left" Width="100" IsReadOnly="True"/>
+                <Button x:Name="FileSaveLocButton" Content=" File Location" Grid.Row="12" Grid.Column ="1" Width="100" FontSize="14" Click="FileSaveLocButton_Click"/>
                 <TextBox x:Name="StatusTextBox" Grid.Row="13" Grid.ColumnSpan="2" TextWrapping="Wrap" Width="200" FontWeight="Bold" Opacity="0.6" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
             </Grid>
             <Image x:Name="ColourBarImgBox" HorizontalAlignment="Right" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Source="Assets/FullColourBar.png" Stretch="None" Margin="0,9,0,15" Grid.RowSpan="2" />

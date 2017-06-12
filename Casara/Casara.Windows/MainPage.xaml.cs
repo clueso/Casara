@@ -83,6 +83,7 @@ namespace Casara
         private readonly SynchronizationContext synchronizationContext;
         private DeviceInformationCollection ConnectedBTDevices;
         private string ActiveBTDevice;
+        private int LastPlottedPoint;
         private const int GPSMessageNumOfFields = 7;
 
         //Arduino data indices
@@ -134,6 +135,7 @@ namespace Casara
             DataLayer = null;
             TilePackageFile = null;
             DefaultRadius = 200;
+            LastPlottedPoint = 0;
             SpotSizeTextBox.Text = DefaultRadius.ToString();
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
@@ -172,6 +174,7 @@ namespace Casara
                 BTStopButton.IsEnabled = false;
                 BTStartButton.IsEnabled = true;
                 DisplayRequested = false;
+                FileSaveLocTextBox.Text = DataFolder.Path;
 
                 ConnectedBTDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
                 foreach (DeviceInformation DevInfo in ConnectedBTDevices)
@@ -487,10 +490,8 @@ namespace Casara
             BTClass.DisconnectDevice();
         }
 
-        private async Task ConnectBT()
+        private async Task OpenFile()
         {
-            bool BTDeviceFound = false;
-
             if (DataFolder != null)
             {
                 try
@@ -500,14 +501,20 @@ namespace Casara
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine("ConnectBT: Error opening file!" + ex.Message);
+                    Debug.WriteLine("OpenFile: Error opening file!" + ex.Message);
                 }
             }
+        }
 
+        private async Task ConnectBT()
+        {
+            bool BTDeviceFound = false;
+
+            
             //Ashwin BT = HC-05, Daniel BT = RNBT-6971
             foreach (DeviceInformation DevInfo in ConnectedBTDevices)
             {
-                if (DevInfo.Name == BTDeviceList.SelectedItem)
+                if (DevInfo.Name.Equals(BTDeviceList.SelectedItem.ToString()))
                 {
                     await BTClass.ConnectDevice(DevInfo);
                     BTDeviceFound = true;
@@ -537,12 +544,14 @@ namespace Casara
             ListenTask = BTClass.ListenForData();
         }
 
-        private void BTStarted_Clicked(object sender, RoutedEventArgs e)
+        private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
         {
+            await OpenFile();
             BTClass.StartDataDisplay();
             BTStartButton.IsEnabled = false;
             BTStopButton.IsEnabled = true;
             LoadFileButton.IsEnabled = false;
+            FileSaveLocButton.IsEnabled = false;
         }
 
         private void BTStop_Clicked(object sender, RoutedEventArgs e)
@@ -551,6 +560,7 @@ namespace Casara
             BTStartButton.IsEnabled = true;
             BTStopButton.IsEnabled = false;
             LoadFileButton.IsEnabled = true;
+            FileSaveLocButton.IsEnabled = true;
         }
 
         public void BTClass_OnExceptionOccured(object sender, Exception ex)
@@ -560,8 +570,6 @@ namespace Casara
 
         public async void BTClass_OnDataReceived(object sender, string message)
         {
-            int LastPlottedPoint = ParsedDataPoints.Count;
-
             try
             {
                 await Task.Run(() => ParseMessage(message));
@@ -672,8 +680,9 @@ namespace Casara
         {
             ArduinoDataPoint Point;
             int i;
+            int count = ParsedDataPoints.Count;
                         
-            for (i = StartIndex; i < ParsedDataPoints.Count; i++)
+            for (i = StartIndex; i < count; i++)
             {
                 Point = ParsedDataPoints[i];
 
@@ -695,6 +704,7 @@ namespace Casara
                         await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
                                 + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000")
                                 + "," + Point.Altitude.ToString("#.00000") + "\r\n");
+                    LastPlottedPoint = i;
                 }
             }
             StatusTextBox.Text = "Plotted " + ParsedDataPoints.Count.ToString() + " Points\n";
@@ -927,6 +937,17 @@ namespace Casara
             await DisconnectBT();
             await ConnectBT();
             ActiveBTDevice = BTDeviceList.SelectedIndex.ToString();
+        }
+
+        private async void FileSaveLocButton_Click(object sender, RoutedEventArgs e)
+        {
+            FolderPicker SaveLocationPicker = new FolderPicker();
+            SaveLocationPicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            SaveLocationPicker.FileTypeFilter.Add(".txt");
+
+            StorageFolder folder = await SaveLocationPicker.PickSingleFolderAsync();
+            DataFolder = folder;
+            FileSaveLocTextBox.Text = DataFolder.Path;
         }
     }
 }

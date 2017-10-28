@@ -7,15 +7,17 @@ using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Networking.Sockets;
 using Windows.Devices.Enumeration;
 using Windows.Storage.Streams;
+using System.Diagnostics;
 
 namespace Casara
 {
     public enum BluetoothConnectionState
     {
-        Disconnected,
-        Connected,
         Enumerating,
-        Connecting
+        Connecting,
+        Connected,
+        Disconnecting,
+        Disconnected
     }
 
     class BlueToothClass
@@ -23,11 +25,13 @@ namespace Casara
         private RfcommDeviceService BTService;
         private StreamSocket BTStreamSocket;
         private DataReader BTStreamSocketReader;
-        private DataWriter BTStreamSocketWriter;
-        private BluetoothConnectionState BTState; 
+        private BluetoothConnectionState BTState;
+        private bool display;
+        private const int ReadAttemptLength = 64;
 
         public delegate void AddOnExceptionOccuredDelegate(object sender, Exception ex);
         public event AddOnExceptionOccuredDelegate ExceptionOccured;
+        
         private void OnExceptionOccuredEvent(object sender, Exception ex)
         {
             if (ExceptionOccured != null)
@@ -49,8 +53,23 @@ namespace Casara
             BTService = null;
             BTStreamSocket = null;
             BTStreamSocketReader = null;
-            BTStreamSocketWriter = null;
             BTState = BluetoothConnectionState.Disconnected;
+            display = false;
+        }
+
+        public void StartDisconnectProcess()
+        {
+            BTState = BluetoothConnectionState.Disconnecting;
+        }
+
+        public void StartDataDisplay()
+        {
+            display = true;
+        }
+
+        public void StopDataDisplay()
+        {
+            display = false;
         }
 
         public bool IsBTConnected
@@ -80,7 +99,6 @@ namespace Casara
                     BTStreamSocket = new StreamSocket();
                     await BTStreamSocket.ConnectAsync(BTService.ConnectionHostName, BTService.ConnectionServiceName,
                                                       SocketProtectionLevel.BluetoothEncryptionAllowNullAuthentication);
-                    BTStreamSocketWriter = new DataWriter(BTStreamSocket.OutputStream);
                     BTStreamSocketReader = new DataReader(BTStreamSocket.InputStream);
                     BTStreamSocketReader.ByteOrder = ByteOrder.LittleEndian;
                     BTStreamSocketReader.UnicodeEncoding = Windows.Storage.Streams.UnicodeEncoding.Utf8;
@@ -98,29 +116,19 @@ namespace Casara
 
         public async Task ListenForData()
         {
-            while (BTStreamSocketReader != null)
+            uint BytesReturned;
+
+            while (BTStreamSocketReader != null && BTState != BluetoothConnectionState.Disconnecting)
             {
                 try
                 {
-                    // Read first byte (length of the subsequent message, 255 or less). 
-                    uint sizeFieldCount = await BTStreamSocketReader.LoadAsync(1);
-                    if (sizeFieldCount != 1)
-                    {
-                        // The underlying socket was closed before we were able to read the whole data. 
+                    BytesReturned = await BTStreamSocketReader.LoadAsync(ReadAttemptLength);
+                    if (BytesReturned == 0)
                         return;
-                    }
-
-                    // Read the message. 
-                    uint messageLength = BTStreamSocketReader.ReadByte();
-                    uint actualMessageLength = await BTStreamSocketReader.LoadAsync(messageLength);
-                    if (messageLength != actualMessageLength)
-                    {
-                        // The underlying socket was closed before we were able to read the whole data. 
-                        return;
-                    }
                     // Read the message and process it.
-                    string message = BTStreamSocketReader.ReadString(actualMessageLength);
-                    OnMessageReceivedEvent(this, message);
+                    string message = BTStreamSocketReader.ReadString(BytesReturned);
+                    if (display)
+                        OnMessageReceivedEvent(this, message);
                 }
                 catch (Exception ex)
                 {
@@ -133,20 +141,8 @@ namespace Casara
         public void DisconnectDevice()
         {
             if (BTStreamSocketReader != null)
-            {
-                //BTStreamSocketReader.DetachStream();
-                //BTStreamSocketReader.Dispose();
                 BTStreamSocketReader = null;
-            }
-                
-
-            if (BTStreamSocketWriter != null)
-            {
-                BTStreamSocketWriter.DetachStream();
-                BTStreamSocketWriter.Dispose();
-                BTStreamSocketWriter = null;
-            }
-                
+ 
             if (BTStreamSocket != null)
             {
                 BTStreamSocket.Dispose();

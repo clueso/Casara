@@ -21,12 +21,12 @@ volatile int readFlag;                // High when a value is ready to be read
 const int ADC_CHANNELS = 4;           // Set how many analogue inputs to read, starting from A0
 int maximum;                          // Audio strength value after ADC
 
-// Create anarray to store the results of the ADC conversions
-// 0 - battery, 1 - audio, 2 - strength, 3 - direction
+// Create an array to store the results of the ADC conversions
 volatile unsigned int myvar[ADC_CHANNELS];
 int unsigned Sums[ADC_CHANNELS] = {0};
 int unsigned Counts[ADC_CHANNELS] = {0};
 bool gps_sentence_received;
+bool transmit_ready;
 
 void ZeroSumCount()
 {
@@ -41,6 +41,72 @@ unsigned int set_timer_value(int Hz)
 {
   long divisor = Hz * 1024L;
   return (unsigned int)((16L*pow(10,6))/divisor);
+}
+
+int str_to_int(char *str)
+{
+  return (str[0] - '0') * 10 + (str[1] - '0');
+}
+
+void handle_serial_read()
+{
+  char buf[10];
+
+  if (!Serial.available())
+    return;
+
+  Serial.readBytesUntil('*', buf, 20);
+  if (buf[0] == 'f')
+    OCR1A = set_timer_value(str_to_int(buf+1));
+}
+
+// The app assumes the same order as below. If this order is changed, search for "Arduino data indices" in the app and change the order there.
+// Also review functions AddToPlotList() and ParseMessage() to see if changing the order can break anything.
+// It is preferable to keep data that will be saved in the data file at the head of the list. Refer to note for AddToPlotList() in the app.
+// 0 - signal strength, 1 - Latitude (if present), 2 - Longitude (if present), 3 - Altitude (if present), 4 - direction, 5 - Mean of audio, 6 - battery
+void transmit_data()
+{
+  //Maximum Audio value
+  //Serial.print(maximum);
+  //Serial.print(",");
+  
+  //Average value strength
+  //Serial.print(Sums[2]/Counts[2]);
+  //Serial.print(",");
+  
+  //Instantaneous value of strength reading
+  Serial.print(myvar[2]);
+  
+  //Average value of direction
+  //Serial.print(Sums[3]/Counts[3]);
+  //Serial.print(",");
+  
+  if (GPS.fix && gps_sentence_received) {
+    Serial.print(","); 
+    Serial.print(GPS.latitudeDegrees, 4);
+    Serial.print(",");
+    Serial.print(GPS.longitudeDegrees, 4);
+    Serial.print(",");
+    Serial.print(GPS.altitude);
+    Serial.print(",");
+    gps_sentence_received = false;
+  }
+  else {
+    Serial.print(",,,,");
+  }
+  //Instantaneous value of direction
+  Serial.print(myvar[3]);
+  Serial.print(",");
+  
+  //Average value of Audio
+  Serial.print(Sums[1]/Counts[1]);
+  Serial.print(",");
+  //Instantaneous value of Battery
+  Serial.println(myvar[0]);
+  
+  maximum = 0;
+  ZeroSumCount();
+  transmit_ready = false;
 }
 
 // Initialization
@@ -72,6 +138,7 @@ void setup(){
   sei();                               // Enable global interrupts  
   ADCSRA |=B01000000;                  // Set ADSC in ADCSRA (0x7A) to start the ADC conversion
   gps_sentence_received = false;
+  transmit_ready = false;
 }
 
 // Processor loop
@@ -114,46 +181,25 @@ void loop(){
       return;      // We can fail to parse a sentence in which case we should just wait for another
     gps_sentence_received = true;
   }
+  
+  if (transmit_ready)
+    transmit_data();
 }
 
 // Find maximum audio signal and display on LEDs
 void clipping () {
   int ledLevel = map(maximum, 0, 1023, 0, LED_COUNT);
-  for (int thisLed = 0; thisLed < LED_COUNT; thisLed++) {
+  
+  for (int thisLed = 0; thisLed < ledLevel; thisLed++)
     if (thisLed < ledLevel)
       digitalWrite(ledPins[thisLed], HIGH);
     else
       digitalWrite(ledPins[thisLed], LOW);
-  }
 }
 
-// 0 - battery, 1 - audio, 2 - strength, 3 - direction
 // Interrupt Service Routine for Timer1
-ISR(TIMER1_COMPA_vect){  
-  Serial.print(myvar[0]);
-  Serial.print(",");
-  Serial.print(Sums[1]/Counts[1]);
-  Serial.print(",");
-  Serial.print(maximum);
-  Serial.print(",");
-  //Serial.print(Sums[2]/Counts[2]);
-  Serial.print(myvar[2]);
-  Serial.print(",");
-//  Serial.print(Sums[3]/Counts[3]);
-  Serial.print(myvar[3]);
-  
-  if (GPS.fix && gps_sentence_received) {
-    Serial.print(","); 
-    Serial.print(GPS.latitudeDegrees, 4);
-    Serial.print(","); 
-    Serial.println(GPS.longitudeDegrees, 4);
-    gps_sentence_received = false;
-  }
-  else {
-    Serial.println(",,");
-  }
-  maximum = 0;
-  ZeroSumCount();
+ISR(TIMER1_COMPA_vect){
+  transmit_ready = true;
 }
 
 // Interrupt is called once a millisecond, looks for any new GPS data, and stores it

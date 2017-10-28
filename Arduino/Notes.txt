@@ -1,0 +1,10 @@
+1. Battery reading - read straight from Arduino shield
+2. Audio reading - Filtered and digitised value from from the radio output used to listen to the ELT signal. Gets fed into the Arduino shield with DSP circuits.
+3. Strength - Signal reading from the Homer when in receive mode. In this mode, the homer reads a signal from just one of its two antennae and reports the intensity.
+4. Direction - Signal reading from the Homer when in direction(differential?) mode. In this mode, the homer reads a signal from both antennae and reports the value as a left/right reading.
+		* 0 is hard left, 512 is centre, 1023 is hard right.
+
+
+HC-05 passkey = 1234
+
+Reduce the number of variables sent over BT. Change code to match the reduced number of variables.

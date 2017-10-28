@@ -23,6 +23,7 @@ using Windows.UI.Xaml.Shapes;
 //using Bing.Maps.HeatMaps;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Networking;
 using Windows.Devices.Enumeration;
@@ -46,6 +47,7 @@ namespace Casara
         public double Latitude;
         public double Longitude;
         public double Radius;
+        public double Altitude;
         public bool Plotted;
     };
 
@@ -55,7 +57,6 @@ namespace Casara
     /// </summary>
     public sealed partial class MainPage : Page
     {
-
         private NavigationHelper navigationHelper;
         private ObservableDictionary defaultViewModel = new ObservableDictionary();
         private GPSDataClass GPS = null;
@@ -66,7 +67,6 @@ namespace Casara
         private double MapScale;
         private BlueToothClass BTClass;
         private Task ListenTask;
-        private List<ArduinoDataPoint> MeasuredSignalStrength;
         private List<ArduinoDataPoint> ParsedDataPoints;
         private string DataBuffer;
         private StorageFolder DataFolder;
@@ -81,7 +81,19 @@ namespace Casara
         private DisplayRequest ActiveDisplay;
         private bool DisplayRequested;
         private readonly SynchronizationContext synchronizationContext;
+        private DeviceInformationCollection ConnectedBTDevices;
+        private string ActiveBTDevice;
+        private int LastPlottedPoint;
+        private const int GPSMessageNumOfFields = 7;
 
+        //Arduino data indices
+        private const int MeanAudioIndex = 5;
+        private const int BatteryStatusIndex = 6;
+        private const int DirectionIndex = 4;
+        private const int SignalStrengthIndex = 0;
+        private const int LatitudeIndex = 1;
+        private const int LongitudeIndex = 2;
+        private const int AltitudeIndex = 3;
         /// <summary>
         /// This can be changed to a strongly typed view model.
         /// </summary>
@@ -123,13 +135,11 @@ namespace Casara
             DataLayer = null;
             TilePackageFile = null;
             DefaultRadius = 200;
+            LastPlottedPoint = 0;
             SpotSizeTextBox.Text = DefaultRadius.ToString();
 
             BTClass.ExceptionOccured += BTClass_OnExceptionOccured;
             BTClass.MessageReceived += BTClass_OnDataReceived;
-            //auto services = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(RfcommDeviceService.GetDeviceSelector(
-                //RfcommServiceId.ObexObjectPush));
-            MeasuredSignalStrength = new List<ArduinoDataPoint>();
             ParsedDataPoints = new List<ArduinoDataPoint>();
             synchronizationContext = SynchronizationContext.Current;
         }
@@ -156,18 +166,28 @@ namespace Casara
                 LatitudeBox.Text += Position.Coordinate.Point.Position.Latitude.ToString();
                 LongitudeBox.Text += Position.Coordinate.Point.Position.Longitude.ToString();
 
-                MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
+                MapCentre = new Esri.ArcGISRuntime.Geometry.MapPoint(Position.Coordinate.Point.Position.Longitude,
+                                                                     Position.Coordinate.Point.Position.Latitude,
+                                                                     Esri.ArcGISRuntime.Geometry.SpatialReferences.Wgs84);
                 MainMapView.SetView(MapCentre, MapScale);
                 GPS.LocUpdateThreshold = 10.0;
                 BTStopButton.IsEnabled = false;
                 BTStartButton.IsEnabled = true;
                 DisplayRequested = false;
-                //MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
-                //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 20000, 0x00ffffff);
+                FileSaveLocTextBox.Text = DataFolder.Path;
+
+                ConnectedBTDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
+                foreach (DeviceInformation DevInfo in ConnectedBTDevices)
+                {
+                    BTDeviceList.Items.Add(DevInfo.Name);
+                }
+                if (BTDeviceList.Items.Count > 0)
+                    BTDeviceList.SelectedIndex = 0;
+                await ConnectBT();
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                StatusTextBox.Text = "Error in navigationHelper_LoadState!\n";
+                StatusTextBox.Text = "navigationHelper_LoadState exception:" + ex.Message + "\n";
             }
 
             StatusTextBox.Text += "State Loaded...\n";
@@ -181,17 +201,23 @@ namespace Casara
         /// <param name="sender">The source of the event; typically <see cref="NavigationHelper"/></param>
         /// <param name="e">Event data that provides an empty dictionary to be populated with
         /// serializable state.</param>
-        private void navigationHelper_SaveState(object sender, SaveStateEventArgs e)
+        private async void navigationHelper_SaveState(object sender, SaveStateEventArgs e)
         {
             if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
                 GPS.GeoLoc.PositionChanged -= new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
             if (BTClass.IsBTConnected == true)
-                BTClass.DisconnectDevice();
+            {
+                await DisconnectBT();
+            }
+ 
             if (ActiveDisplay != null && DisplayRequested == true)
             {
                 ActiveDisplay.RequestRelease();
                 DisplayRequested = false;
             }
+
+            if (DataFile != null)
+                DataFile = null;
         }
 
         #region NavigationHelper registration
@@ -274,43 +300,91 @@ namespace Casara
             Esri.ArcGISRuntime.Layers.Graphic Graphic = new Esri.ArcGISRuntime.Layers.Graphic();
             Graphic.Geometry = Poly;
             Graphic.Symbol = Fill;
-
-            //Poly.FillColor = Windows.UI.Color.FromArgb(255, (byte)((Intensity & 0x00ff0000) >> 16), (byte)((Intensity & 0x0000ff00) >> 8), (byte)(Intensity & 0x000000ff));
             
             try
             {
                 if (MainMap.Layers.Count == 0)
                     MainMap.Layers.Add(new Esri.ArcGISRuntime.Layers.GraphicsLayer());
 
-                //Esri.ArcGISRuntime.Layers.GraphicsLayer test = MainMapView.Map.Layers["ShapeLayer"] as Esri.ArcGISRuntime.Layers.GraphicsLayer;
-                //test.Graphics.Add(Graphic);
                 if (DataLayer != null)
                     DataLayer.Graphics.Add(Graphic);
             }
-            catch(Exception)
+            catch(Exception e)
             {
-                StatusTextBox.Text += "Map Error\n";
+                Debug.WriteLine("DrawCircle exception:" + e.Message);
             }
-
-            StatusTextBox.Text += "DrawCircle done...\n";
         }
 
-        private void StartButton_Click(object sender, RoutedEventArgs e)
+        private void ClearTextBoxes()
         {
-                try
-                {
-                    if (GPS.GeoLoc != null) //Can this callback get assigned multiple times? That can cause some undefined behaviour!
-                    {
-                        GPS.GeoLoc.PositionChanged += new TypedEventHandler<Geolocator, PositionChangedEventArgs>(GPSPositionChanged);
-                    }
+            LatitudeBox.Text = "Latitude = ";
+            LongitudeBox.Text = "Longitude = ";
+            AccuracyBox.Text = "Accuracy = ";
+            SignalStrengthTextBox.Text = "Signal = ";
+            BatteryStrengthTextBox.Text = "Battery = ";
+            LH16SignalStrengthBox.Text = "LH16 Signal = ";
+            StatusTextBox.Text = "";
+        }
+        
+        // AddToPlotList() is called from two places, when the data is read from the Arduino and when 
+        // a previously saved data file is reloaded. The first case has more data than the second, 
+        // because not all data is saved in the file. Take care that the indices used in this function
+        // do not point to data which is absent in the data list. Ideally, we will always keep the saved
+        // data at the head of the list to avoid this problem.
+        private void AddToPlotList(string[] SignalList)
+        {
+            if (SignalList.Length < 4)
+                return;
 
-                    StayTimer.Reset();
-                    StayTimer.Start();
-                }
-                catch (Exception)
+            if (ParsedDataPoints != null && !SignalList[SignalStrengthIndex].Equals("") && !SignalList[LatitudeIndex].Equals("") && !SignalList[LongitudeIndex].Equals(""))
+            {
+                //Point Data
+                // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Direction, 5 & 6 - GPS
+                // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
+                ParsedDataPoints.Add(new ArduinoDataPoint
                 {
-                    StatusTextBox.Text += "Error in StartButton_Click!\n";
-                }            
+                    SignalStrength = Convert.ToInt32(SignalList[SignalStrengthIndex]),
+                    Latitude = Convert.ToDouble(SignalList[LatitudeIndex]),
+                    Longitude = Convert.ToDouble(SignalList[LongitudeIndex]),
+                    Radius = DefaultRadius,
+                    Altitude = Convert.ToDouble(SignalList[AltitudeIndex]),
+                    Plotted = false
+                });
+            }
+        }
+
+        private async void LoadSavedFile()
+        {
+            string[] SignalList;
+            string str;
+
+            FileOpenPicker FilePicker = new FileOpenPicker();
+            FilePicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            FilePicker.FileTypeFilter.Add(".txt");
+            
+            StorageFile file = await FilePicker.PickSingleFileAsync();
+            if (file == null)
+                return;
+
+            Stream s = await file.OpenStreamForReadAsync();
+            StreamReader sr = new StreamReader(s);
+            while ((str = sr.ReadLine()) != null)
+            {
+                if (str[0] == '#')
+                    continue;
+                SignalList = str.Split(',');
+                AddToPlotList(SignalList);
+            }
+            await PlotList(0);
+            sr.Dispose();
+            s.Dispose();
+        }
+
+        private void LoadFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            ClearPoints(true);
+            ClearTextBoxes();
+            LoadSavedFile();
         }
 
         async private void GPSPositionChanged(Geolocator sender, PositionChangedEventArgs e)
@@ -326,13 +400,12 @@ namespace Casara
                 await WinCoreDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     MainMapView.SetView(NewCentre,MapScale);
-                    //DrawCircle(Position.Coordinate.Point.Position.Longitude, Position.Coordinate.Point.Position.Latitude, 200, 0x00ff0000);
                 }
                 );
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                                
+                Debug.WriteLine("GPSPositionChanged exception:" + ex.Message);
             }
             
         }
@@ -351,7 +424,8 @@ namespace Casara
                 return 0;
         }
 
-        //For 100% opacity, pass a value to 255, for 0% pass a value of 0
+        //For 100% opacity, pass a value of 255, for 0% pass a value of 0
+        //Colour profiles for the RGB components are translations of the G component.
         private Windows.UI.Color CalculateIntensityColour(Int32 Intensity, byte Opacity)
         {
             Windows.UI.Color ColourValue;
@@ -382,7 +456,9 @@ namespace Casara
                 Esri.ArcGISRuntime.Layers.GraphicCollection GraphicsList = GraphLayer.Graphics;
                 GraphicsList.Clear();
                 if (ClearData == true)
-                    MeasuredSignalStrength.Clear();
+                {
+                    ParsedDataPoints.Clear();
+                }
             }
             catch (Exception)
             {
@@ -392,7 +468,7 @@ namespace Casara
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
             ClearPoints(true);
-            StatusTextBox.Text = "";
+            ClearTextBoxes();
         }
 
         private string CreateFileName()
@@ -407,42 +483,55 @@ namespace Casara
             return FileName;
         }
 
-        private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
+        private async Task DisconnectBT()
         {
-            bool BTDeviceFound = false;
+            BTClass.StartDisconnectProcess();
+            await ListenTask;
+            BTClass.DisconnectDevice();
+        }
 
+        private async Task OpenFile()
+        {
             if (DataFolder != null)
             {
                 try
                 {
                     DataFile = await DataFolder.CreateFileAsync(CreateFileName(), CreationCollisionOption.ReplaceExisting);
-                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "New session started " + DateTime.Now.ToString() + "\r\n");
+                    await Windows.Storage.FileIO.WriteTextAsync(DataFile, "# New session started " + DateTime.Now.ToString() + "\r\n");
                 }
-                catch(Exception)
+                catch (Exception ex)
                 {
-                    Debug.WriteLine("Error opening file!");
+                    Debug.WriteLine("OpenFile: Error opening file!" + ex.Message);
                 }
             }
+        }
 
-            DeviceInformationCollection ConnectedDevices = await BTClass.EnumerateDevices(RfcommServiceId.SerialPort);
-            //Ashwin BT = HC-05
-            //Daniel BT = RNBT-6971
-            foreach(DeviceInformation DevInfo in ConnectedDevices)
+        private async Task ConnectBT()
+        {
+            bool BTDeviceFound = false;
+
+            
+            //Ashwin BT = HC-05, Daniel BT = RNBT-6971
+            foreach (DeviceInformation DevInfo in ConnectedBTDevices)
             {
-                if (DevInfo.Name.Equals("HC-05") || DevInfo.Name.Equals("RNBT-6971"))
+                if (DevInfo.Name.Equals(BTDeviceList.SelectedItem.ToString()))
                 {
                     await BTClass.ConnectDevice(DevInfo);
                     BTDeviceFound = true;
+                    ActiveBTDevice = BTDeviceList.SelectedItem.ToString();
                     break;
                 }
             }
-            
-            if(!BTDeviceFound)
+
+            if (!BTDeviceFound)
             {
-                StatusTextBox.Text += "No known BT device found...stopping\n";
+                StatusTextBox.Text += "Selected Bluetooth device not found...stopping\n";
                 return;
             }
 
+            //Request active display so the device does not hibernate. If we want to allow
+            //hibernation, we'll have to handle disconnecting/reconnecting the BT and handling
+            //the traffic in the interim.
             if (ActiveDisplay == null)
                 ActiveDisplay = new DisplayRequest();
 
@@ -451,67 +540,44 @@ namespace Casara
                 ActiveDisplay.RequestActive();
                 DisplayRequested = true;
             }
-                
 
             ListenTask = BTClass.ListenForData();
+        }
+
+        private async void BTStarted_Clicked(object sender, RoutedEventArgs e)
+        {
+            await OpenFile();
+            BTClass.StartDataDisplay();
             BTStartButton.IsEnabled = false;
             BTStopButton.IsEnabled = true;
-            //DataBuffer = "100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n600,49.26,-123.14\r\n1000,49.24,-123.14\r\n128,49.26";
-            //ParseMessage();
-            //PlotList();
+            LoadFileButton.IsEnabled = false;
+            FileSaveLocButton.IsEnabled = false;
         }
 
         private void BTStop_Clicked(object sender, RoutedEventArgs e)
         {
-            BTClass.DisconnectDevice();
+            BTClass.StopDataDisplay();
             BTStartButton.IsEnabled = true;
             BTStopButton.IsEnabled = false;
-            if (ActiveDisplay != null && DisplayRequested == true)
-            {
-                ActiveDisplay.RequestRelease();
-                DisplayRequested = false;
-            }
-                
-            if (DataFile != null)
-                DataFile = null;
-            //DataBuffer += ",-123.17\r\n100,49.26,-123.30\r\n20,49.25,-123.14\r\n300,49.25,-123.13\r\n";
-            //ParseMessage();
-            //PlotList();
+            LoadFileButton.IsEnabled = true;
+            FileSaveLocButton.IsEnabled = true;
         }
 
         public void BTClass_OnExceptionOccured(object sender, Exception ex)
         {
-            Debug.WriteLine("Something wrong");
+            Debug.WriteLine("BTClass exception" + ex.Message);
         }
 
         public async void BTClass_OnDataReceived(object sender, string message)
         {
             try
             {
-                if (DataBuffer != null)
-                    DataBuffer += message;
-                else
-                    DataBuffer = message;
-
-                await Task.Run(() => ParseMessage());
-                await PlotList();
-
-                try
-                {
-                    LatitudeBox.Text = "Latitude = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].Latitude.ToString();
-                    LongitudeBox.Text = "Longitude = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].Longitude.ToString();
-                    SignalStrengthTextBox.Text = "Signal = " + MeasuredSignalStrength[MeasuredSignalStrength.Count - 1].SignalStrength.ToString();
-                }
-                catch(Exception e)
-                {
-                    Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived:setting text boxes");
-                }
-                
-                //MeasuredSignalStrength.Clear();                
+                await Task.Run(() => ParseMessage(message));
+                await PlotList(LastPlottedPoint + 1);
             }
-            catch(Exception e)
+            catch(Exception ex)
             {
-                Debug.WriteLine("Exception " + e.Message + " in BTClass_OnDataReceived");
+                Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived");
             }   
         }
 
@@ -533,31 +599,60 @@ namespace Casara
         {
             string[] SignalList = (string[])o;
 
+            if (ParsedDataPoints.Count > 0)
+            {
+                try
+                {
+                    ArduinoDataPoint Point = ParsedDataPoints.Last();
+
+                    LatitudeBox.Text = "Latitude = " + Point.Latitude.ToString();
+                    LongitudeBox.Text = "Longitude = " + Point.Longitude.ToString();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Exception " + ex.Message + " in BTClass_OnDataReceived:setting text boxes");
+                }
+            }
+            
             //Audio strength
-            if (!SignalList[1].Equals(""))
-                SignalStrengthTextBox.Text = "Audio signal = " + SignalList[1].ToString();
+            if (!SignalList[MeanAudioIndex].Equals(""))
+                SignalStrengthTextBox.Text = "Audio signal = " + SignalList[MeanAudioIndex].ToString();
 
             //LH16 Signal strength
-            if (!SignalList[2].Equals(""))
-                LH16SignalStrengthBox.Text = "LH16 signal = " + SignalList[2].ToString();
+            if (!SignalList[SignalStrengthIndex].Equals(""))
+                LH16SignalStrengthBox.Text = "LH16 signal = " + SignalList[SignalStrengthIndex].ToString();
 
             //Direction Indication
-            if (!SignalList[3].Equals(""))
-                SetDirIndicators(Convert.ToInt32(SignalList[3]));
+            if (!SignalList[DirectionIndex].Equals(""))
+                SetDirIndicators(Convert.ToInt32(SignalList[DirectionIndex]));
 
             //Battery Status
-            if (!SignalList[0].Equals(""))
-                BatteryStrengthTextBox.Text = "Battery = " + SignalList[0].ToString();
+            if (!SignalList[BatteryStatusIndex].Equals(""))
+                BatteryStrengthTextBox.Text = "Battery = " + SignalList[BatteryStatusIndex].ToString();
         }
 
-        private void ParseMessage()
+        private int Median(List<int> l)
+        {
+            if (l.Count == 0)
+                return 0;
+            
+            l.Sort();
+            return l[l.Count / 2];
+        }
+
+        private void ParseMessage(string message)
         {
             string TrimmedMessage;
             int SubStringIndex;
             char[] separators = { '\r', '\n' };
             UIUpdateDelegate UIUpdatefn = new UIUpdateDelegate(UpdateUI);
 
-            Debug.WriteLine("DataBuffer:" + DataBuffer);
+            message = message.Trim();
+            if (DataBuffer != null)
+                DataBuffer += message;
+            else
+                DataBuffer = message;
+
             SubStringIndex = DataBuffer.LastIndexOf('\n');
             if (SubStringIndex < 0)
                 TrimmedMessage = DataBuffer;
@@ -567,74 +662,52 @@ namespace Casara
             DataBuffer = DataBuffer.Remove(0, TrimmedMessage.Length - 1);
 
             string[] DataPointList = TrimmedMessage.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-            Debug.WriteLine("TrimmedMessage:" + TrimmedMessage);
+            
             foreach(string Str in DataPointList)
             {
-                Debug.WriteLine("Str:" + Str);
-                
                 //No. of separators = No. of variables - 1
-                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == 5)
+                if(!Str.Equals("") && Str.Count(Sep => Sep ==',') == (GPSMessageNumOfFields - 1))
                 {
                     string[] SignalList = Str.Split(',');
-                    
-                    if (ParsedDataPoints != null && !SignalList[2].Equals("") && !SignalList[4].Equals("") && !SignalList[5].Equals(""))
-                    {
-                        //Point Data
-                        // 0 - Battery, 1 - Mean audio, 2 - Max Audio, 3 - Mean strength, 4 - Direction, 5 & 6 - GPS
-                        // 0 - Battery, 1 - Mean audio, 2 - Mean strength, 3 - Direction, 4 & 5 - GPS
-                        ParsedDataPoints.Add(new ArduinoDataPoint
-                        {
-                            SignalStrength = Convert.ToInt32(SignalList[2]),
-                            Latitude = Convert.ToDouble(SignalList[4]),
-                            Longitude = Convert.ToDouble(SignalList[5]),
-                            Radius = DefaultRadius,
-                            Plotted = false
-                        });
 
-                        synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
-                    }
-                }                
+                    AddToPlotList(SignalList);
+                    synchronizationContext.Post(new SendOrPostCallback(UIUpdatefn), SignalList);
+                }
             }
-
-            //if(DataBuffer.Contains("\n"))
-            //    DataBuffer = DataBuffer.Remove(0, DataBuffer.LastIndexOf('\n') + 1);
-            //StatusTextBox.Text += "Done Parsing: " + ParsedDataPoints.Count.ToString() + " Points.\n";
         }
 
-        private async Task PlotList()
+        private async Task PlotList(int StartIndex)
         {
             ArduinoDataPoint Point;
             int i;
+            int count = ParsedDataPoints.Count;
                         
-            for (i = 0; i < ParsedDataPoints.Count; i++)
+            for (i = StartIndex; i < count; i++)
             {
                 Point = ParsedDataPoints[i];
 
                 if (Point.SignalStrength > MaxIntensity)
                 {
                     MaxIntensity = Point.SignalStrength;
-                    //UpdateShapeColours(Colour);
                 }
-                    
 
                 if (Point.SignalStrength < MinIntensity)
                 {
                     MinIntensity = Point.SignalStrength;
-                    //UpdateShapeColours(Colour);
                 }
 
                 if (Point.Plotted == false)
                 {
                     DrawCircle(Point.Longitude, Point.Latitude, Point.Radius, Point.SignalStrength);
                     Point.Plotted = true;
-                    MeasuredSignalStrength.Add(Point);
                     if (DataFile != null)
                         await Windows.Storage.FileIO.AppendTextAsync(DataFile, Point.SignalStrength.ToString() + ","
-                                + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000") + "\r\n");
+                                + Point.Latitude.ToString("#.00000") + "," + Point.Longitude.ToString("#.00000")
+                                + "," + Point.Altitude.ToString("#.00000") + "\r\n");
+                    LastPlottedPoint = i;
                 }
             }
-            ParsedDataPoints.Clear();
-            StatusTextBox.Text += "Finished plotting\n";
+            StatusTextBox.Text = "Plotted " + ParsedDataPoints.Count.ToString() + " Points\n";
         }
 
         private void creationProgress_ProgressChanged(Object sender, ExportTileCacheJob p)
@@ -728,9 +801,9 @@ namespace Casara
                                                                      creationProgress,
                                                                      downloadProgress);
             }
-            catch(Exception)
+            catch(Exception except)
             {
-                StatusTextBox.Text += "Downloading Tile Package failed...stopping\n";
+                StatusTextBox.Text += "Downloading Tile Package failed..." + except.Message + " stopping\n";
                 return;
             }
             
@@ -761,7 +834,15 @@ namespace Casara
             if (OnlineMapBaseLayer == null)
             {
                 OnlineMapBaseLayer = new ArcGISTiledMapServiceLayer(new Uri(BaseMapUrl));
-                await OnlineMapBaseLayer.InitializeAsync();
+                try
+                {
+                    await OnlineMapBaseLayer.InitializeAsync();
+                }
+                catch(Exception)
+                {
+                    StatusTextBox.Text = "Could not load map. Please check your internet connection and restart the app";
+                    return;
+                }                
             }
 
             if (DataLayer == null)
@@ -821,12 +902,12 @@ namespace Casara
             int i;
             ArduinoDataPoint tmp;
 
-            for (i = 0; i < MeasuredSignalStrength.Count; i++)
+            for (i = 0; i < ParsedDataPoints.Count; i++)
             {
-                tmp = MeasuredSignalStrength[i];
+                tmp = ParsedDataPoints[i];
                 tmp.Radius = DefaultRadius;
                 tmp.Plotted = false;
-                MeasuredSignalStrength[i] = tmp;
+                ParsedDataPoints[i] = tmp;
             }
         }
 
@@ -837,7 +918,7 @@ namespace Casara
                 DefaultRadius = Convert.ToInt32(SpotSizeTextBox.Text);
                 UpdateSpotSize();
                 ClearPoints(false);
-                await PlotList();
+                await PlotList(0);
             }
             catch(Exception)
             {
@@ -845,53 +926,28 @@ namespace Casara
             }
         }
 
-        //private void TestSpeed()
-        //{
-        //    int Limit = 20;
-        //    int i;
-        //    Random R = new Random();
-        //    //Image test = (Image)MainMap.Children[0];
-        //    //SolidColorBrush brush = new SolidColorBrush(Windows.UI.Colors.Blue);
-            
+        private async void BTDeviceList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (BTClass.IsBTConnected == false)
+                return;
 
-        //    for (i = 0; i < Limit; i++)
-        //    {
-        //        Location Loc = new Location(R.NextDouble()*180-90,R.NextDouble()*360-180);
-        //        Image img = new Image();
-        //        img.Source = new BitmapImage(new Uri("ms-appx:///Assets/tweety.jpg"));
-        //        img.Height = 50;
-        //        img.Width = 50;
-        //        //MapLayer.SetPosition((Image)img, Loc);
-        //        //MainMap.Children.Add(img);
-        //        //DrawCircle(49,122,0.25,0x0000ff);//R.NextDouble()*180-90,R.NextDouble()*360-180
-        //        //test.DrawCircle(R.Next(50, 400), R.Next(50, 400), brush);
-        //    }
-        //    StatusTextBox.Text += "Added circles...\n";
-        //}
+            if (ActiveBTDevice == BTDeviceList.SelectedIndex.ToString())
+                return;
 
-        //private void MainMap_Viewchanged(object sender, ViewChangedEventArgs e)
-        //{
-            //if (MainMap.Children.Count > 0)
-            //{
-            //    Image test = (Image)MainMap.Children[0];
+            await DisconnectBT();
+            await ConnectBT();
+            ActiveBTDevice = BTDeviceList.SelectedIndex.ToString();
+        }
 
-            //    test.Height = 10 * MainMap.ZoomLevel;
-            //    test.Width = 10 * MainMap.ZoomLevel;
-            //    test.Stretch = Stretch.UniformToFill;
-            //    test.InvalidateArrange();
-            //    MainMap.InvalidateArrange();
-            //    ScrollableImage test = (ScrollableImage)MainMap.Children[0];
-            //    test.SetZoom((float)MainMap.ZoomLevel);
-            //}
+        private async void FileSaveLocButton_Click(object sender, RoutedEventArgs e)
+        {
+            FolderPicker SaveLocationPicker = new FolderPicker();
+            SaveLocationPicker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+            SaveLocationPicker.FileTypeFilter.Add(".txt");
 
-        //}
-
-        //private void MainMap_LayerLoaded(object sender, LayerLoadedEventArgs e)
-        //{
-        //    if (e.LoadError == null)
-        //        return;
-
-        //    Debug.WriteLine(string.Format("Error while loading layer : {0} - {1}", e.Layer.ID, e.LoadError.Message));
-        //}
+            StorageFolder folder = await SaveLocationPicker.PickSingleFolderAsync();
+            DataFolder = folder;
+            FileSaveLocTextBox.Text = DataFolder.Path;
+        }
     }
 }
